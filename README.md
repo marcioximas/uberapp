@@ -100,6 +100,24 @@ A [Meta Cloud API](https://developers.facebook.com/docs/whatsapp/cloud-api) ofic
 5. Cadastre o telefone de cada motorista (com DDD) em Motoristas
 6. Na tela de Conciliação, cobranças atrasadas/não pagas mostram um botão "Enviar WhatsApp"
 
+## Testes
+
+Três camadas de teste, em `tests/`:
+- `tests/unit/` — lógica pura (geração de datas recorrentes, parsing de CSV, matching de conciliação, projeção de caixa, status de manutenção), sem precisar de servidor.
+- `tests/api/` — rotas Flask via test client (`app.test_client()`), banco SQLite em memória por teste.
+- `tests/e2e/` — Playwright dirigindo um Chromium de verdade contra o app rodando de fato (subprocess `flask run` + SQLite temporário), cobrindo login, cadastro de carro/motorista/contrato, mês a mês e avulsos.
+
+```bash
+pip install -r requirements-dev.txt
+playwright install chromium   # só na primeira vez, baixa o navegador
+
+pytest                        # roda tudo (unit + api + e2e)
+pytest tests/unit tests/api   # só as camadas rápidas (sem navegador)
+pytest tests/e2e              # só os testes de ponta a ponta
+```
+
+Os testes de unidade/API rodam com CSRF desabilitado (config de teste) para simplificar; os testes e2e passam pelo formulário real do navegador, então o CSRF funciona normalmente.
+
 ## Estrutura
 ```
 uberapp/
@@ -117,11 +135,12 @@ uberapp/
 │                                  financeiro, gps, maintenance
 ├── migrations/                    # Flask-Migrate / Alembic
 ├── uploads/gps/                    # Screenshots enviados (disco local)
+├── tests/                           # unit/, api/, e2e/ (ver seção Testes)
 ├── requirements.txt
+├── requirements-dev.txt
 └── templates/                       # HTML + Bootstrap
 ```
 
 ## Limitações conhecidas (v1)
-- Sem testes automatizados — validação é manual via navegador
 - Imagens de GPS ficam em disco local; no plano gratuito do Render isso é efêmero entre deploys (os dados extraídos ficam salvos no banco normalmente, só o print em si pode se perder)
 - Sem níveis de permissão — qualquer usuário logado acessa tudo

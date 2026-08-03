@@ -8,3 +8,4 @@ uploads/gps/*
 .venv/
 venv/
 .claude/
+.pytest_cache/
