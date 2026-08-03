@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import render_field %}
+{% block title %}Configurações financeiras{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Configurações financeiras</h1>
+<p class="text-muted small">Define o ponto de partida do saldo de caixa usado no mês a mês e na projeção.</p>
+<div class="row">
+  <div class="col-md-6">
+    <form method="post">
+      {{ form.hidden_tag() }}
+      {{ render_field(form.saldo_inicial) }}
+      {{ render_field(form.saldo_data) }}
+      {{ form.submit(class="btn btn-primary") }}
+    </form>
+  </div>
+</div>
+{% endblock %}

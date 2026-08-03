@@ -33,6 +33,7 @@ def new_agreement(car_id):
             weekday=int(form.weekday.data) if form.frequency.data == "weekly" and form.weekday.data else None,
             day_of_month=form.day_of_month.data if form.frequency.data == "monthly" else None,
             start_date=form.start_date.data,
+            reliability_pct=form.reliability_pct.data or 100,
             notes=form.notes.data,
         )
         db.session.add(agreement)

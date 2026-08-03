@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import render_field %}
+{% block title %}Novo lançamento avulso{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Novo lançamento avulso</h1>
+<p class="text-muted small">Conserto, pneu, guincho, multa, etc. Não entra na projeção de fluxo de caixa — só no realizado do mês.</p>
+<div class="row">
+  <div class="col-md-6">
+    <form method="post">
+      {{ form.hidden_tag() }}
+      {{ render_field(form.car_id) }}
+      {{ render_field(form.type) }}
+      {{ render_field(form.description) }}
+      {{ render_field(form.amount) }}
+      {{ render_field(form.entry_date) }}
+      {{ form.submit(class="btn btn-primary") }}
+      <a href="{{ url_for('financeiro.mes_a_mes') }}" class="btn btn-outline-secondary">Cancelar</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

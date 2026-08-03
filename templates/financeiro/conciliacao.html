@@ -39,6 +39,17 @@
             </button>
           </form>
         {% endif %}
+        {% if c.status != "matched" %}
+          <form method="post" action="{{ url_for('financeiro.confirmar_manual', charge_id=c.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-secondary">Marcar recebido manualmente</button>
+          </form>
+        {% elif c.manually_confirmed %}
+          <form method="post" action="{{ url_for('financeiro.desfazer_confirmacao', charge_id=c.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-secondary">Desfazer confirmação manual</button>
+          </form>
+        {% endif %}
       </td>
     </tr>
     {% else %}

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import status_badge %}
+{% block title %}Mês a mês{% endblock %}
+{% block content %}
+{% set nomes_mes = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"] %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <a href="{{ url_for('financeiro.mes_a_mes', ano=mes_anterior[0], mes=mes_anterior[1]) }}" class="btn btn-sm btn-outline-secondary">‹</a>
+    <span class="h4 mx-2">{{ nomes_mes[mes] }}/{{ ano }}</span>
+    <a href="{{ url_for('financeiro.mes_a_mes', ano=mes_seguinte[0], mes=mes_seguinte[1]) }}" class="btn btn-sm btn-outline-secondary">›</a>
+  </div>
+  <a href="{{ url_for('financeiro.novo_avulso') }}" class="btn btn-primary btn-sm">Novo avulso</a>
+</div>
+
+{% if not dados_por_carro %}
+<p class="text-muted">Nenhum carro com contas neste mês. Cadastre um contrato de aluguel ou uma conta fixa num carro.</p>
+{% endif %}
+
+{% for bloco in dados_por_carro %}
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <strong><a href="{{ url_for('cars.detail', car_id=bloco.car.id) }}">{{ bloco.car.plate }}</a></strong>
+    <a href="{{ url_for('cars.new_recurring_item', car_id=bloco.car.id) }}" class="btn btn-sm btn-outline-secondary">Nova conta fixa</a>
+  </div>
+  <div class="card-body">
+    {% if bloco.cobrancas %}
+    <h3 class="h6">Aluguel</h3>
+    <table class="table table-sm">
+      <thead><tr><th>Vencimento</th><th>Motorista</th><th>Valor</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {% for c in bloco.cobrancas %}
+        <tr>
+          <td>{{ c.due_date.strftime("%d/%m") }}</td>
+          <td>{{ c.agreement.driver.name }}</td>
+          <td>R$ {{ "%.2f"|format(c.amount_expected) }}</td>
+          <td>{{ status_badge(c.status) }}</td>
+          <td>
+            {% if c.status != "matched" %}
+            <form method="post" action="{{ url_for('financeiro.confirmar_manual', charge_id=c.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm btn-outline-success">Marcar recebido</button>
+            </form>
+            {% elif c.manually_confirmed %}
+            <form method="post" action="{{ url_for('financeiro.desfazer_confirmacao', charge_id=c.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm btn-outline-secondary">Desfazer</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if bloco.ocorrencias %}
+    <h3 class="h6">Contas fixas</h3>
+    <table class="table table-sm">
+      <thead><tr><th>Vencimento</th><th>Item</th><th>Tipo</th><th>Valor</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {% for o in bloco.ocorrencias %}
+        <tr>
+          <td>{{ o.due_date.strftime("%d/%m") }}</td>
+          <td>{{ o.item.name }}</td>
+          <td>{{ "Entrada" if o.item.type == "income" else "Saída" }}</td>
+          <td>
+            <form method="post" action="{{ url_for('financeiro.editar_valor_ocorrencia', occurrence_id=o.id) }}" class="d-flex gap-1">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="number" step="0.01" name="amount" value="{{ o.amount }}" class="form-control form-control-sm" style="width:6.5rem">
+              <button class="btn btn-sm btn-outline-secondary">Salvar</button>
+            </form>
+          </td>
+          <td>{{ status_badge("matched" if o.status == "paid" else "pending") }}</td>
+          <td>
+            <form method="post" action="{{ url_for('financeiro.confirmar_ocorrencia', occurrence_id=o.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm btn-outline-{{ 'secondary' if o.status == 'paid' else 'success' }}">
+                {{ "Marcar pendente" if o.status == "paid" else ("Marcar recebido" if o.item.type == "income" else "Marcar pago") }}
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if bloco.avulsos %}
+    <h3 class="h6">Avulsos</h3>
+    <table class="table table-sm">
+      <thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Valor</th></tr></thead>
+      <tbody>
+        {% for a in bloco.avulsos %}
+        <tr>
+          <td>{{ a.entry_date.strftime("%d/%m") }}</td>
+          <td>{{ a.description }}</td>
+          <td>{{ "Entrada" if a.type == "income" else "Saída" }}</td>
+          <td>R$ {{ "%.2f"|format(a.amount) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

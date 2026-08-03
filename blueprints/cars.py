@@ -2,8 +2,8 @@ from flask import Blueprint, render_template, redirect, url_for, flash
 from flask_login import login_required
 
 from extensions import db
-from forms import CarForm
-from models import Car, Transaction
+from forms import CarForm, RecurringItemForm
+from models import Car, Transaction, RecurringItem
 
 cars_bp = Blueprint("cars", __name__, url_prefix="/carros")
 
@@ -67,3 +67,27 @@ def detail(car_id):
         .all()
     )
     return render_template("cars/detail.html", car=car, transacoes_recentes=transacoes_recentes)
+
+
+@cars_bp.route("/<int:car_id>/contas-fixas/novo", methods=["GET", "POST"])
+@login_required
+def new_recurring_item(car_id):
+    car = Car.query.get_or_404(car_id)
+    form = RecurringItemForm()
+    if form.validate_on_submit():
+        item = RecurringItem(
+            car_id=car.id,
+            name=form.name.data,
+            amount=form.amount.data,
+            type=form.type.data,
+            frequency=form.frequency.data,
+            weekday=int(form.weekday.data) if form.frequency.data == "weekly" and form.weekday.data else None,
+            day_of_month=form.day_of_month.data if form.frequency.data == "monthly" else None,
+            start_date=form.start_date.data,
+            notes=form.notes.data,
+        )
+        db.session.add(item)
+        db.session.commit()
+        flash("Conta fixa cadastrada com sucesso.", "success")
+        return redirect(url_for("cars.detail", car_id=car.id))
+    return render_template("financeiro/contas_fixas_form.html", form=form, car=car, item=None)

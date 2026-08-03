@@ -96,6 +96,8 @@ class RentalAgreement(db.Model):
     end_date = db.Column(db.Date)
     active = db.Column(db.Boolean, default=True, nullable=False)
     notes = db.Column(db.Text)
+    reliability_pct = db.Column(db.Integer, default=100, nullable=False)
+    # % usado só na projeção de caixa, para ponderar motoristas que atrasam
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     car = db.relationship("Car", back_populates="rental_agreements")
@@ -125,15 +127,19 @@ class ExpectedCharge(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     notified_at = db.Column(db.DateTime)
     notified_count = db.Column(db.Integer, default=0, nullable=False)
+    manually_confirmed = db.Column(db.Boolean, default=False, nullable=False)
+    confirmed_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    confirmed_at = db.Column(db.DateTime)
 
     agreement = db.relationship("RentalAgreement", back_populates="expected_charges")
     transaction = db.relationship(
         "Transaction", back_populates="matched_expected_charge", uselist=False
     )
+    confirmed_by = db.relationship("User")
 
     def recompute_status(self, today=None):
         """Atualiza o status com base na data de hoje, se ainda não estiver conciliado."""
-        if self.transaction is not None:
+        if self.transaction is not None or self.manually_confirmed:
             self.status = "matched"
             return
         today = today or date.today()
@@ -297,3 +303,97 @@ class GPSReading(db.Model):
 
     def __repr__(self):
         return f"<GPSReading car={self.car_id} {self.status}>"
+
+
+class RecurringItem(db.Model):
+    """Custo ou receita fixa por carro (ex: prestação de financiamento, seguro, rastreador)."""
+
+    __tablename__ = "recurring_items"
+
+    id = db.Column(db.Integer, primary_key=True)
+    car_id = db.Column(db.Integer, db.ForeignKey("cars.id"), nullable=False)
+    name = db.Column(db.String(120), nullable=False)
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    type = db.Column(db.String(10), nullable=False)  # "income" | "expense"
+    frequency = db.Column(db.String(10), nullable=False)  # "weekly" | "monthly"
+    weekday = db.Column(db.Integer)
+    day_of_month = db.Column(db.Integer)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date)
+    active = db.Column(db.Boolean, default=True, nullable=False)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    car = db.relationship("Car", backref="recurring_items")
+    occurrences = db.relationship(
+        "RecurringOccurrence", back_populates="item", order_by="RecurringOccurrence.due_date"
+    )
+
+    def __repr__(self):
+        return f"<RecurringItem {self.name} car={self.car_id} {self.type}>"
+
+
+class RecurringOccurrence(db.Model):
+    """Ocorrência mensal/semanal de um RecurringItem, marcada paga/recebida manualmente."""
+
+    __tablename__ = "recurring_occurrences"
+    __table_args__ = (
+        db.UniqueConstraint("recurring_item_id", "due_date", name="uq_item_due_date"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    recurring_item_id = db.Column(db.Integer, db.ForeignKey("recurring_items.id"), nullable=False)
+    due_date = db.Column(db.Date, nullable=False)
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    status = db.Column(db.String(10), nullable=False, default="pending")  # "pending" | "paid"
+    paid_date = db.Column(db.Date)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    item = db.relationship("RecurringItem", back_populates="occurrences")
+
+    def __repr__(self):
+        return f"<RecurringOccurrence item={self.recurring_item_id} due={self.due_date} {self.status}>"
+
+
+class AdHocEntry(db.Model):
+    """Lançamento avulso (não-fixo) por carro: conserto, pneu, guincho, multa, etc.
+
+    Não entra na projeção de fluxo de caixa — só no realizado do mês.
+    """
+
+    __tablename__ = "ad_hoc_entries"
+
+    id = db.Column(db.Integer, primary_key=True)
+    car_id = db.Column(db.Integer, db.ForeignKey("cars.id"), nullable=False)
+    type = db.Column(db.String(10), nullable=False)  # "income" | "expense"
+    description = db.Column(db.String(255), nullable=False)
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    entry_date = db.Column(db.Date, nullable=False)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    car = db.relationship("Car", backref="ad_hoc_entries")
+    created_by = db.relationship("User")
+
+    def __repr__(self):
+        return f"<AdHocEntry {self.description} {self.amount} {self.type}>"
+
+
+class CashSettings(db.Model):
+    """Configuração única (id=1) do saldo inicial de caixa, ponto de partida da projeção."""
+
+    __tablename__ = "cash_settings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    saldo_inicial = db.Column(db.Numeric(10, 2), nullable=False, default=0)
+    saldo_data = db.Column(db.Date, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @classmethod
+    def get(cls):
+        settings = cls.query.get(1)
+        if settings is None:
+            settings = cls(id=1, saldo_inicial=0, saldo_data=date.today())
+            db.session.add(settings)
+            db.session.commit()
+        return settings

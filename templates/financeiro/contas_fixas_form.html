@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 {% from "partials/_macros.html" import render_field %}
-{% block title %}Contrato de aluguel{% endblock %}
+{% block title %}{{ "Editar conta fixa" if item else "Nova conta fixa" }}{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">Novo contrato — {{ car.plate }}</h1>
+<h1 class="h4 mb-3">{{ "Editar conta fixa" if item else "Nova conta fixa" }} — {{ car.plate }}</h1>
 <div class="row">
   <div class="col-md-6">
     <form method="post">
       {{ form.hidden_tag() }}
-      {{ render_field(form.driver_id) }}
+      {{ render_field(form.name) }}
       {{ render_field(form.amount) }}
+      {{ render_field(form.type) }}
       {{ render_field(form.frequency, id="frequency") }}
       <div id="weekly-field">{{ render_field(form.weekday) }}</div>
       <div id="monthly-field">{{ render_field(form.day_of_month) }}</div>
       {{ render_field(form.start_date) }}
-      {{ render_field(form.reliability_pct) }}
       {{ render_field(form.notes) }}
       {{ form.submit(class="btn btn-primary") }}
       <a href="{{ url_for('cars.detail', car_id=car.id) }}" class="btn btn-outline-secondary">Cancelar</a>

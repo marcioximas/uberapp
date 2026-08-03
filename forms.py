@@ -58,6 +58,11 @@ class RentalAgreementForm(FlaskForm):
         "Dia do mês (aluguel mensal)", validators=[Optional(), NumberRange(min=1, max=28)]
     )
     start_date = DateField("Início da vigência", validators=[DataRequired()])
+    reliability_pct = IntegerField(
+        "Confiabilidade de pagamento (%)",
+        default=100,
+        validators=[Optional(), NumberRange(min=0, max=100)],
+    )
     notes = TextAreaField("Observações", validators=[Optional()])
     submit = SubmitField("Salvar contrato")
 
@@ -117,3 +122,52 @@ class MaintenanceLogForm(FlaskForm):
     cost = DecimalField("Custo (R$)", places=2, validators=[Optional()])
     notes = TextAreaField("Observações", validators=[Optional()])
     submit = SubmitField("Registrar serviço")
+
+
+class RecurringItemForm(FlaskForm):
+    name = StringField("Nome (ex: Prestação financiamento)", validators=[DataRequired(), Length(max=120)])
+    amount = DecimalField("Valor (R$)", places=2, validators=[DataRequired()])
+    type = SelectField(
+        "Tipo", choices=[("expense", "Saída"), ("income", "Entrada")], validators=[DataRequired()]
+    )
+    frequency = SelectField(
+        "Frequência",
+        choices=[("weekly", "Semanal"), ("monthly", "Mensal")],
+        validators=[DataRequired()],
+    )
+    weekday = SelectField(
+        "Dia da semana (se semanal)",
+        choices=[
+            ("0", "Segunda"),
+            ("1", "Terça"),
+            ("2", "Quarta"),
+            ("3", "Quinta"),
+            ("4", "Sexta"),
+            ("5", "Sábado"),
+            ("6", "Domingo"),
+        ],
+        validators=[Optional()],
+    )
+    day_of_month = IntegerField(
+        "Dia do mês (se mensal)", validators=[Optional(), NumberRange(min=1, max=28)]
+    )
+    start_date = DateField("Início da vigência", validators=[DataRequired()])
+    notes = TextAreaField("Observações", validators=[Optional()])
+    submit = SubmitField("Salvar")
+
+
+class AdHocEntryForm(FlaskForm):
+    car_id = SelectField("Carro", coerce=int, validators=[DataRequired()])
+    type = SelectField(
+        "Tipo", choices=[("expense", "Saída"), ("income", "Entrada")], validators=[DataRequired()]
+    )
+    description = StringField("Descrição", validators=[DataRequired(), Length(max=255)])
+    amount = DecimalField("Valor (R$)", places=2, validators=[DataRequired()])
+    entry_date = DateField("Data", validators=[DataRequired()])
+    submit = SubmitField("Lançar")
+
+
+class CashSettingsForm(FlaskForm):
+    saldo_inicial = DecimalField("Saldo inicial (R$)", places=2, validators=[DataRequired()])
+    saldo_data = DateField("Data de referência do saldo", validators=[DataRequired()])
+    submit = SubmitField("Salvar")

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Projeção de caixa{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Projeção de fluxo de caixa</h1>
+  <a href="{{ url_for('financeiro.configuracoes') }}" class="btn btn-sm btn-outline-secondary">Configurar saldo inicial</a>
+</div>
+
+<div class="btn-group btn-group-sm mb-3">
+  <a class="btn btn-outline-secondary {{ 'active' if meses == 6 }}" href="{{ url_for('financeiro.projecao', meses=6) }}">6 meses</a>
+  <a class="btn btn-outline-secondary {{ 'active' if meses == 12 }}" href="{{ url_for('financeiro.projecao', meses=12) }}">12 meses</a>
+  <a class="btn btn-outline-secondary {{ 'active' if meses == 24 }}" href="{{ url_for('financeiro.projecao', meses=24) }}">24 meses</a>
+</div>
+
+<p>Saldo atual: <strong>R$ {{ "%.2f"|format(saldo_atual) }}</strong></p>
+<p class="text-muted small">A projeção soma só os valores fixos (aluguel esperado, ponderado pela confiabilidade de cada motorista, e contas fixas por carro). Lançamentos avulsos não entram — são imprevisíveis.</p>
+
+<table class="table table-sm bg-white">
+  <thead><tr><th>Mês</th><th>Receita prevista</th><th>Despesa fixa</th><th>Resultado</th><th>Saldo projetado</th></tr></thead>
+  <tbody>
+    {% set nomes_mes = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"] %}
+    {% for l in linhas %}
+    <tr class="{{ 'table-danger' if l.alerta }}">
+      <td>{{ nomes_mes[l.mes] }}/{{ l.ano }}</td>
+      <td class="text-success">R$ {{ "%.2f"|format(l.receita) }}</td>
+      <td class="text-danger">R$ {{ "%.2f"|format(l.despesa) }}</td>
+      <td>R$ {{ "%.2f"|format(l.net) }}</td>
+      <td><strong>R$ {{ "%.2f"|format(l.saldo_final) }}</strong>
+        {% if l.alerta %}<span class="badge bg-danger ms-1">Saldo negativo</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

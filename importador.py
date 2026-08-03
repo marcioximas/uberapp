@@ -3,7 +3,7 @@
 import csv
 import io
 import re
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from extensions import db
@@ -14,6 +14,7 @@ from models import (
     ExpectedCharge,
     TOLERANCIA_DIAS,
 )
+from recorrencia import gerar_datas_vencimento
 
 # Aliases de nomes de coluna (case/acento-insensível) usados para localizar o cabeçalho real
 COLUNA_ALIASES = {
@@ -177,7 +178,10 @@ def gerar_cobrancas_esperadas(until_date=None):
     for agreement in RentalAgreement.query.filter_by(active=True).all():
         fim = agreement.end_date or until_date
         fim = min(fim, until_date)
-        for due_date in _gerar_datas_vencimento(agreement, fim):
+        datas = gerar_datas_vencimento(
+            agreement.start_date, agreement.frequency, agreement.weekday, agreement.day_of_month, fim
+        )
+        for due_date in datas:
             existe = ExpectedCharge.query.filter_by(
                 rental_agreement_id=agreement.id, due_date=due_date
             ).first()
@@ -190,38 +194,6 @@ def gerar_cobrancas_esperadas(until_date=None):
                     )
                 )
     db.session.commit()
-
-
-def _gerar_datas_vencimento(agreement, fim):
-    inicio = agreement.start_date
-    if inicio > fim:
-        return
-
-    if agreement.frequency == "weekly":
-        weekday = agreement.weekday if agreement.weekday is not None else inicio.weekday()
-        dias_ate_weekday = (weekday - inicio.weekday()) % 7
-        atual = inicio + timedelta(days=dias_ate_weekday)
-        while atual <= fim:
-            yield atual
-            atual += timedelta(days=7)
-    elif agreement.frequency == "monthly":
-        dia = agreement.day_of_month or inicio.day
-        ano, mes = inicio.year, inicio.month
-        while True:
-            try:
-                atual = date(ano, mes, dia)
-            except ValueError:
-                atual = None
-            if atual and atual >= inicio:
-                if atual > fim:
-                    break
-                yield atual
-            mes += 1
-            if mes > 12:
-                mes = 1
-                ano += 1
-            if date(ano, mes, 1) > fim:
-                break
 
 
 def conciliar_transacoes(batch_id=None):

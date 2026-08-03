@@ -49,6 +49,35 @@
   </div>
 </div>
 
+<div class="d-flex justify-content-between align-items-center">
+  <h2 class="h5">Contas fixas</h2>
+  <a href="{{ url_for('cars.new_recurring_item', car_id=car.id) }}" class="btn btn-sm btn-primary">Nova conta fixa</a>
+</div>
+{% if not car.recurring_items %}
+<p class="text-muted">Nenhuma conta fixa cadastrada (ex: prestação de financiamento, seguro, rastreador).</p>
+{% else %}
+<table class="table table-sm bg-white">
+  <thead><tr><th>Nome</th><th>Tipo</th><th>Valor</th><th>Frequência</th><th></th></tr></thead>
+  <tbody>
+    {% for item in car.recurring_items if item.active %}
+    <tr>
+      <td>{{ item.name }}</td>
+      <td>{{ "Entrada" if item.type == "income" else "Saída" }}</td>
+      <td>R$ {{ "%.2f"|format(item.amount) }}</td>
+      <td>{{ "Semanal" if item.frequency == "weekly" else "Mensal" }}</td>
+      <td>
+        <a href="{{ url_for('financeiro.edit_recurring_item', item_id=item.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
+        <form method="post" action="{{ url_for('financeiro.delete_recurring_item', item_id=item.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Excluir esta conta fixa?')">Excluir</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
 <h2 class="h5">Transações recentes (conciliadas com este carro)</h2>
 {% if not transacoes_recentes %}
 <p class="text-muted">Nenhuma transação conciliada ainda.</p>

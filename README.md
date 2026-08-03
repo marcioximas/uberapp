@@ -1,8 +1,9 @@
-# Uber Ximas — Sistema de Gestão de Frota
+# H&M rent cars — Sistema de Gestão de Frota
 
 ## Módulos
 1. **Financeiro** — Importação de extrato CSV do Itaú, conciliação por carro (aluguel fixo semanal/mensal por motorista), cobrança de parcelas atrasadas via WhatsApp
-2. **Manutenção & GPS** — Upload de prints do GPS, extração automática via IA, checklist de manutenção configurável por carro com alertas preventivos
+2. **Mês a mês & Projeção de caixa** — cada conta fixa (aluguel, prestação de financiamento, etc.) vira uma ocorrência mensal/semanal marcada manualmente como paga/recebida; lançamentos avulsos (conserto, multa); projeção de fluxo de caixa (6/12/24 meses) ponderada pela confiabilidade de pagamento de cada motorista, com alerta de saldo negativo; ranking de margem por carro no dashboard
+3. **Manutenção & GPS** — Upload de prints do GPS, extração automática via IA, checklist de manutenção configurável por carro com alertas preventivos
 
 ## Stack
 - Python + Flask (blueprints) + Flask-SQLAlchemy + Flask-Migrate
@@ -73,6 +74,13 @@ Sem esse passo o sistema não tem nenhum usuário e ninguém consegue logar.
 
 Sem as variáveis de WhatsApp configuradas, o botão "Enviar WhatsApp" na tela de conciliação continua visível mas mostra um erro amigável explicando que a integração não está configurada — o resto do sistema funciona normalmente.
 
+## Como usar o mês a mês e a projeção de caixa
+1. Cadastre as contas fixas de cada carro em Carro → **Nova conta fixa** (ex: prestação de financiamento) — nome livre, entrada ou saída, valor e frequência
+2. Em Financeiro → **Mês a mês**, navegue pelos meses e marque cada aluguel/conta fixa como recebido/pago (o aluguel também pode ser confirmado manualmente ali, além da conciliação automática do extrato)
+3. Lance gastos avulsos (conserto, multa, pneu) em Financeiro → **Mês a mês → Novo avulso** — eles aparecem no realizado do mês mas não entram na projeção, por serem imprevisíveis
+4. Configure o saldo inicial em Financeiro → **Configurações**
+5. Veja Financeiro → **Projeção de caixa** para os próximos 6/12/24 meses — soma o aluguel esperado (ponderado pela "confiabilidade de pagamento %" de cada motorista, configurável no contrato) e as contas fixas; avisa se o saldo projetado ficar negativo em algum mês
+
 ## Como usar o módulo GPS
 1. Abra o app do rastreador no celular
 2. Vá no resumo semanal do veículo
@@ -100,8 +108,11 @@ uberapp/
 ├── extensions.py           # db, login_manager, csrf, migrate
 ├── forms.py                 # Formulários WTForms
 ├── importador.py             # Importação CSV Itaú + lógica de conciliação
-├── gps_reader.py              # Leitura de prints GPS via API Anthropic (visão)
-├── whatsapp.py                 # Cobrança de parcelas atrasadas via Meta Cloud API
+├── recorrencia.py              # Geração de datas de vencimento (semanal/mensal)
+├── contas_fixas.py              # Geração de ocorrências de contas fixas por carro
+├── projecao.py                   # Saldo atual + projeção de fluxo de caixa
+├── gps_reader.py                  # Leitura de prints GPS via API Anthropic (visão)
+├── whatsapp.py                     # Cobrança de parcelas atrasadas via Meta Cloud API
 ├── blueprints/                  # auth, dashboard, cars, drivers, agreements,
 │                                  financeiro, gps, maintenance
 ├── migrations/                    # Flask-Migrate / Alembic
