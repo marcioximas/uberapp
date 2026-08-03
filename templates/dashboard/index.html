@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import status_badge %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1 class="h4 mb-4">Dashboard</h1>
+
+<div class="row mb-4">
+  <div class="col-md-3">
+    <div class="card text-bg-light">
+      <div class="card-body">
+        <div class="text-muted small">Carros ativos</div>
+        <div class="fs-3">{{ total_carros }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-bg-success bg-opacity-25">
+      <div class="card-body">
+        <div class="text-muted small">Conciliado</div>
+        <div class="fs-3">{{ resumo_cobrancas.matched }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-bg-warning bg-opacity-25">
+      <div class="card-body">
+        <div class="text-muted small">Atrasado</div>
+        <div class="fs-3">{{ resumo_cobrancas.late }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-bg-danger bg-opacity-25">
+      <div class="card-body">
+        <div class="text-muted small">Não pago</div>
+        <div class="fs-3">{{ resumo_cobrancas.missing }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex gap-2 mb-4">
+  <a href="{{ url_for('financeiro.conciliacao') }}" class="btn btn-primary btn-sm">Ver conciliação financeira</a>
+  <a href="{{ url_for('financeiro.importar') }}" class="btn btn-outline-primary btn-sm">Importar extrato</a>
+  <a href="{{ url_for('gps.upload') }}" class="btn btn-outline-secondary btn-sm">Upload GPS</a>
+  <a href="{{ url_for('maintenance.alertas') }}" class="btn btn-outline-secondary btn-sm">Ver alertas de manutenção</a>
+</div>
+
+<h2 class="h5">Alertas de manutenção</h2>
+{% if not alertas_manutencao %}
+  <p class="text-muted">Nenhum alerta no momento.</p>
+{% else %}
+  <table class="table table-sm bg-white">
+    <thead><tr><th>Carro</th><th>Item</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for carro, item, status in alertas_manutencao %}
+      <tr>
+        <td><a href="{{ url_for('cars.detail', car_id=carro.id) }}">{{ carro.plate }}</a></td>
+        <td>{{ item.name }}</td>
+        <td>{{ status_badge(status) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endif %}
+{% endblock %}

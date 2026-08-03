@@ -1,0 +1,31 @@
+{% macro render_field(field) %}
+  <div class="mb-3">
+    {{ field.label(class="form-label") }}
+    {% if field.type == "TextAreaField" %}
+      {{ field(class="form-control" + (" is-invalid" if field.errors else ""), rows=3, **kwargs) }}
+    {% elif field.type in ("SelectField",) %}
+      {{ field(class="form-select" + (" is-invalid" if field.errors else ""), **kwargs) }}
+    {% else %}
+      {{ field(class="form-control" + (" is-invalid" if field.errors else ""), **kwargs) }}
+    {% endif %}
+    {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+  </div>
+{% endmacro %}
+
+{% macro status_badge(status) %}
+  {% set map = {
+    "ok": "success", "pending": "secondary", "matched": "success",
+    "atencao": "warning", "late": "warning",
+    "atrasado": "danger", "missing": "danger",
+    "unmatched": "secondary", "ignored": "dark",
+    "pending_review": "secondary", "confirmed": "success", "rejected": "dark"
+  } %}
+  {% set labels = {
+    "ok": "OK", "pending": "Pendente", "matched": "Conciliado",
+    "atencao": "Atenção", "late": "Atrasado",
+    "atrasado": "Atrasado", "missing": "Não pago",
+    "unmatched": "Não conciliado", "ignored": "Ignorado",
+    "pending_review": "Aguardando revisão", "confirmed": "Confirmado", "rejected": "Rejeitado"
+  } %}
+  <span class="badge bg-{{ map.get(status, 'secondary') }}">{{ labels.get(status, status) }}</span>
+{% endmacro %}

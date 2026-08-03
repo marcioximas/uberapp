@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Manutenção{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Manutenção & GPS</h1>
+<div class="d-flex gap-2 mb-4">
+  <a href="{{ url_for('gps.upload') }}" class="btn btn-primary btn-sm">Upload print GPS</a>
+  <a href="{{ url_for('gps.historico') }}" class="btn btn-outline-secondary btn-sm">Histórico GPS</a>
+  <a href="{{ url_for('maintenance.alertas') }}" class="btn btn-outline-danger btn-sm">Alertas da frota</a>
+</div>
+
+<h2 class="h5">Checklist por carro</h2>
+<table class="table table-sm bg-white">
+  <thead><tr><th>Carro</th><th>KM atual</th><th></th></tr></thead>
+  <tbody>
+    {% for car in cars %}
+    <tr>
+      <td>{{ car.plate }}</td>
+      <td>{{ car.current_km }}</td>
+      <td><a href="{{ url_for('maintenance.checklist', car_id=car.id) }}" class="btn btn-sm btn-outline-secondary">Ver checklist</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

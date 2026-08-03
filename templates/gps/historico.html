@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import status_badge %}
+{% block title %}Histórico GPS{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Histórico de leituras de GPS</h1>
+<table class="table table-sm bg-white">
+  <thead><tr><th>Data</th><th>Carro</th><th>KM confirmado</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+    {% for l in leituras %}
+    <tr>
+      <td>{{ l.created_at.strftime("%d/%m/%Y %H:%M") }}</td>
+      <td>{{ l.car.plate }}</td>
+      <td>{{ l.confirmed_km if l.confirmed_km is not none else "-" }}</td>
+      <td>{{ status_badge(l.status) }}</td>
+      <td>
+        {% if l.status == "pending_review" %}
+        <a href="{{ url_for('gps.revisar', reading_id=l.id) }}" class="btn btn-sm btn-primary">Revisar</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="text-muted">Nenhuma leitura ainda.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

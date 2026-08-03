@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import status_badge %}
+{% block title %}Conciliação{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Conciliação financeira</h1>
+  <a href="{{ url_for('financeiro.importar') }}" class="btn btn-primary btn-sm">Importar extrato</a>
+</div>
+
+<div class="btn-group btn-group-sm mb-3">
+  <a class="btn btn-outline-secondary {{ 'active' if not status_filter }}" href="{{ url_for('financeiro.conciliacao') }}">Todas</a>
+  <a class="btn btn-outline-secondary {{ 'active' if status_filter == 'pending' }}" href="{{ url_for('financeiro.conciliacao', status='pending') }}">Pendentes</a>
+  <a class="btn btn-outline-secondary {{ 'active' if status_filter == 'late' }}" href="{{ url_for('financeiro.conciliacao', status='late') }}">Atrasadas</a>
+  <a class="btn btn-outline-secondary {{ 'active' if status_filter == 'missing' }}" href="{{ url_for('financeiro.conciliacao', status='missing') }}">Não pagas</a>
+  <a class="btn btn-outline-secondary {{ 'active' if status_filter == 'matched' }}" href="{{ url_for('financeiro.conciliacao', status='matched') }}">Conciliadas</a>
+</div>
+
+<h2 class="h5">Cobranças esperadas</h2>
+<table class="table table-sm bg-white">
+  <thead>
+    <tr><th>Vencimento</th><th>Carro</th><th>Motorista</th><th>Valor</th><th>Status</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for c in cobrancas %}
+    <tr>
+      <td>{{ c.due_date.strftime("%d/%m/%Y") }}</td>
+      <td><a href="{{ url_for('cars.detail', car_id=c.agreement.car.id) }}">{{ c.agreement.car.plate }}</a></td>
+      <td>{{ c.agreement.driver.name }}</td>
+      <td>R$ {{ "%.2f"|format(c.amount_expected) }}</td>
+      <td>{{ status_badge(c.status) }}</td>
+      <td class="text-end">
+        {% if c.status in ("late", "missing") %}
+          <form method="post" action="{{ url_for('financeiro.notificar_cobranca', charge_id=c.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-success"
+                    {% if not c.agreement.driver.phone %}disabled{% endif %}
+                    title="{{ 'Motorista sem telefone cadastrado' if not c.agreement.driver.phone else '' }}">
+              Enviar WhatsApp{% if c.notified_count %} ({{ c.notified_count }}){% endif %}
+            </button>
+          </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="text-muted">Nenhuma cobrança encontrada.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2 class="h5 mt-4">Transações não conciliadas</h2>
+{% if not transacoes_pendentes %}
+<p class="text-muted">Nenhuma transação pendente de conciliação.</p>
+{% else %}
+<table class="table table-sm bg-white">
+  <thead><tr><th>Data</th><th>Descrição</th><th>Valor</th><th>Atribuir a</th><th></th></tr></thead>
+  <tbody>
+    {% for t in transacoes_pendentes %}
+    <tr>
+      <td>{{ t.transaction_date.strftime("%d/%m/%Y") }}</td>
+      <td>{{ t.description }}</td>
+      <td>R$ {{ "%.2f"|format(t.amount) }}</td>
+      <td>
+        <form method="post" action="{{ url_for('financeiro.atribuir_transacao', transaction_id=t.id) }}" class="d-flex gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          {{ forms_atribuicao[t.id].expected_charge_id.label(class="visually-hidden") }}
+          {{ forms_atribuicao[t.id].expected_charge_id(class="form-select form-select-sm") }}
+          <button class="btn btn-sm btn-primary">Vincular</button>
+        </form>
+      </td>
+      <td>
+        <form method="post" action="{{ url_for('financeiro.ignorar_transacao', transaction_id=t.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-secondary">Ignorar</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

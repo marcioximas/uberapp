@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import status_badge %}
+{% block title %}Importação {{ batch.filename }}{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">{{ batch.filename }} — {{ batch.imported_at.strftime("%d/%m/%Y %H:%M") }}</h1>
+<table class="table table-sm bg-white">
+  <thead><tr><th>Data</th><th>Descrição</th><th>Valor</th><th>Status</th></tr></thead>
+  <tbody>
+    {% for t in transacoes %}
+    <tr>
+      <td>{{ t.transaction_date.strftime("%d/%m/%Y") }}</td>
+      <td>{{ t.description }}</td>
+      <td>R$ {{ "%.2f"|format(t.amount) }}</td>
+      <td>{{ status_badge(t.status) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<a href="{{ url_for('financeiro.importacoes') }}" class="btn btn-outline-secondary btn-sm">Voltar</a>
+{% endblock %}

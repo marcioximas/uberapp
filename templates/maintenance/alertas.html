@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import status_badge %}
+{% block title %}Alertas de manutenção{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Alertas de manutenção da frota</h1>
+{% if not linhas %}
+<p class="text-muted">Nenhum alerta no momento.</p>
+{% else %}
+<table class="table table-sm bg-white">
+  <thead><tr><th>Carro</th><th>Item</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+    {% for car, item, status in linhas %}
+    <tr>
+      <td><a href="{{ url_for('cars.detail', car_id=car.id) }}">{{ car.plate }}</a></td>
+      <td>{{ item.name }}</td>
+      <td>{{ status_badge(status) }}</td>
+      <td><a href="{{ url_for('maintenance.checklist', car_id=car.id) }}" class="btn btn-sm btn-outline-primary">Ver checklist</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

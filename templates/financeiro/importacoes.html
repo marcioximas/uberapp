@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Importações{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Histórico de importações</h1>
+<table class="table table-sm bg-white">
+  <thead><tr><th>Data</th><th>Arquivo</th><th>Linhas</th><th>Ignoradas</th><th>Importado por</th><th></th></tr></thead>
+  <tbody>
+    {% for b in batches %}
+    <tr>
+      <td>{{ b.imported_at.strftime("%d/%m/%Y %H:%M") }}</td>
+      <td>{{ b.filename }}</td>
+      <td>{{ b.row_count }}</td>
+      <td>{{ b.skipped_row_count }}</td>
+      <td>{{ b.imported_by.name if b.imported_by else "-" }}</td>
+      <td><a href="{{ url_for('financeiro.importacao_detalhe', batch_id=b.id) }}" class="btn btn-sm btn-outline-secondary">Ver</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="text-muted">Nenhuma importação ainda.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

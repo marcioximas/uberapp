@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ driver.name }}{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">{{ driver.name }} {% if not driver.active %}<span class="badge bg-secondary">Inativo</span>{% endif %}</h1>
+<p><strong>Telefone:</strong> {{ driver.phone or "-" }} &nbsp; <strong>CPF:</strong> {{ driver.document or "-" }}</p>
+
+<h2 class="h5">Contratos</h2>
+{% if not driver.rental_agreements %}
+<p class="text-muted">Nenhum contrato registrado.</p>
+{% else %}
+<table class="table table-sm bg-white">
+  <thead><tr><th>Carro</th><th>Valor</th><th>Frequência</th><th>Início</th><th>Fim</th></tr></thead>
+  <tbody>
+    {% for ag in driver.rental_agreements %}
+    <tr>
+      <td><a href="{{ url_for('cars.detail', car_id=ag.car.id) }}">{{ ag.car.plate }}</a></td>
+      <td>R$ {{ "%.2f"|format(ag.amount) }}</td>
+      <td>{{ "Semanal" if ag.frequency == "weekly" else "Mensal" }}</td>
+      <td>{{ ag.start_date.strftime("%d/%m/%Y") }}</td>
+      <td>{{ ag.end_date.strftime("%d/%m/%Y") if ag.end_date else "-" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

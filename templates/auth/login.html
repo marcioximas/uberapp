@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import render_field %}
+{% block title %}Login{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-4">
+    <h1 class="h4 mb-3">Entrar</h1>
+    <form method="post">
+      {{ form.hidden_tag() }}
+      {{ render_field(form.username) }}
+      {{ render_field(form.password) }}
+      {{ form.submit(class="btn btn-primary w-100") }}
+    </form>
+  </div>
+</div>
+{% endblock %}

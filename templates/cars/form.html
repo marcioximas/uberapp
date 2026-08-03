@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import render_field %}
+{% block title %}{{ "Editar carro" if car else "Novo carro" }}{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">{{ "Editar carro" if car else "Novo carro" }}</h1>
+<div class="row">
+  <div class="col-md-6">
+    <form method="post">
+      {{ form.hidden_tag() }}
+      {{ render_field(form.plate) }}
+      {{ render_field(form.model) }}
+      {{ render_field(form.year) }}
+      {{ form.submit(class="btn btn-primary") }}
+      <a href="{{ url_for('cars.list_cars') }}" class="btn btn-outline-secondary">Cancelar</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

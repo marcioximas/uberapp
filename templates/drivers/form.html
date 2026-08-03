@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import render_field %}
+{% block title %}{{ "Editar motorista" if driver else "Novo motorista" }}{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">{{ "Editar motorista" if driver else "Novo motorista" }}</h1>
+<div class="row">
+  <div class="col-md-6">
+    <form method="post">
+      {{ form.hidden_tag() }}
+      {{ render_field(form.name) }}
+      {{ render_field(form.phone, placeholder="55DDNNNNNNNNN (com código do país)") }}
+      {{ render_field(form.document) }}
+      {{ form.submit(class="btn btn-primary") }}
+      <a href="{{ url_for('drivers.list_drivers') }}" class="btn btn-outline-secondary">Cancelar</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

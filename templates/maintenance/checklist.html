@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import render_field, status_badge %}
+{% block title %}Checklist — {{ car.plate }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Checklist de manutenção — {{ car.plate }} (KM atual: {{ car.current_km }})</h1>
+  <a href="{{ url_for('maintenance.new_item', car_id=car.id) }}" class="btn btn-primary btn-sm">Novo item</a>
+</div>
+
+{% if not itens_com_status %}
+<p class="text-muted">Nenhum item configurado ainda.</p>
+{% endif %}
+
+{% for item, status in itens_com_status %}
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-start">
+      <div>
+        <h2 class="h6 mb-1">{{ item.name }} {{ status_badge(status) }}</h2>
+        <p class="text-muted small mb-1">
+          {% if item.km_interval %}A cada {{ item.km_interval }} km{% endif %}
+          {% if item.km_interval and item.date_interval_days %} ou {% endif %}
+          {% if item.date_interval_days %}a cada {{ item.date_interval_days }} dias{% endif %}
+        </p>
+        <p class="small mb-0">
+          Último serviço: {{ item.last_done_km if item.last_done_km is not none else "-" }} km,
+          {{ item.last_done_date.strftime("%d/%m/%Y") if item.last_done_date else "nunca registrado" }}
+        </p>
+      </div>
+      <div class="d-flex gap-1">
+        <a href="{{ url_for('maintenance.edit_item', item_id=item.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
+        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#log-{{ item.id }}">Registrar serviço</button>
+        <form method="post" action="{{ url_for('maintenance.delete_item', item_id=item.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Excluir/desativar este item?')">Excluir</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="collapse mt-3" id="log-{{ item.id }}">
+      <form method="post" action="{{ url_for('maintenance.registrar_servico', item_id=item.id) }}" class="row g-2">
+        {{ log_form.hidden_tag() }}
+        <div class="col-md-3">{{ render_field(log_form.done_date) }}</div>
+        <div class="col-md-3">{{ render_field(log_form.done_km) }}</div>
+        <div class="col-md-2">{{ render_field(log_form.cost) }}</div>
+        <div class="col-md-3">{{ render_field(log_form.notes) }}</div>
+        <div class="col-md-1 d-flex align-items-start pt-4">{{ log_form.submit(class="btn btn-sm btn-primary") }}</div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<a href="{{ url_for('cars.detail', car_id=car.id) }}" class="btn btn-outline-secondary btn-sm">Voltar ao carro</a>
+{% endblock %}

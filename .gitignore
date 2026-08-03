@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+*.db
+instance/
+uploads/gps/*
+!uploads/gps/.gitkeep
+.venv/
+venv/
+.claude/

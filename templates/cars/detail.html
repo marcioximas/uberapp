@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import status_badge %}
+{% block title %}{{ car.plate }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">{{ car.plate }} {% if not car.active %}<span class="badge bg-secondary">Inativo</span>{% endif %}</h1>
+  <a href="{{ url_for('cars.edit_car', car_id=car.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
+</div>
+
+<div class="row mb-4">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body">
+        <h2 class="h6">Dados</h2>
+        <p class="mb-1"><strong>Modelo:</strong> {{ car.model or "-" }} ({{ car.year or "-" }})</p>
+        <p class="mb-0"><strong>KM atual:</strong> {{ car.current_km }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body">
+        <h2 class="h6">Contrato atual</h2>
+        {% if car.current_agreement %}
+          {% set ag = car.current_agreement %}
+          <p class="mb-1"><strong>Motorista:</strong> <a href="{{ url_for('drivers.detail', driver_id=ag.driver.id) }}">{{ ag.driver.name }}</a></p>
+          <p class="mb-1"><strong>Valor:</strong> R$ {{ "%.2f"|format(ag.amount) }} ({{ "Semanal" if ag.frequency == "weekly" else "Mensal" }})</p>
+          <form method="post" action="{{ url_for('agreements.end_agreement', agreement_id=ag.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Encerrar este contrato?')">Encerrar contrato</button>
+          </form>
+        {% else %}
+          <p class="text-muted">Nenhum contrato ativo.</p>
+        {% endif %}
+        <a href="{{ url_for('agreements.new_agreement', car_id=car.id) }}" class="btn btn-sm btn-primary mt-2">
+          {{ "Trocar motorista / novo contrato" if car.current_agreement else "Criar contrato" }}
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body">
+        <h2 class="h6">Manutenção</h2>
+        <a href="{{ url_for('maintenance.checklist', car_id=car.id) }}" class="btn btn-sm btn-outline-secondary">Ver checklist</a>
+        <a href="{{ url_for('gps.upload') }}" class="btn btn-sm btn-outline-secondary">Upload GPS</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2 class="h5">Transações recentes (conciliadas com este carro)</h2>
+{% if not transacoes_recentes %}
+<p class="text-muted">Nenhuma transação conciliada ainda.</p>
+{% else %}
+<table class="table table-sm bg-white">
+  <thead><tr><th>Data</th><th>Descrição</th><th>Valor</th></tr></thead>
+  <tbody>
+    {% for t in transacoes_recentes %}
+    <tr>
+      <td>{{ t.transaction_date.strftime("%d/%m/%Y") }}</td>
+      <td>{{ t.description }}</td>
+      <td>R$ {{ "%.2f"|format(t.amount) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<h2 class="h5">Últimas leituras de GPS</h2>
+{% if not car.gps_readings %}
+<p class="text-muted">Nenhuma leitura registrada ainda.</p>
+{% else %}
+<table class="table table-sm bg-white">
+  <thead><tr><th>Data</th><th>KM confirmado</th><th>Status</th></tr></thead>
+  <tbody>
+    {% for r in car.gps_readings[:10] %}
+    <tr>
+      <td>{{ r.created_at.strftime("%d/%m/%Y") }}</td>
+      <td>{{ r.confirmed_km if r.confirmed_km is not none else "-" }}</td>
+      <td>{{ status_badge(r.status) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

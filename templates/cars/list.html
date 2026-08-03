@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Carros{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Carros</h1>
+  <a href="{{ url_for('cars.new_car') }}" class="btn btn-primary btn-sm">Novo carro</a>
+</div>
+<table class="table bg-white">
+  <thead><tr><th>Placa</th><th>Modelo</th><th>Ano</th><th>KM</th><th>Motorista atual</th><th></th></tr></thead>
+  <tbody>
+    {% for car in cars %}
+    <tr>
+      <td><a href="{{ url_for('cars.detail', car_id=car.id) }}">{{ car.plate }}</a></td>
+      <td>{{ car.model or "-" }}</td>
+      <td>{{ car.year or "-" }}</td>
+      <td>{{ car.current_km }}</td>
+      <td>{{ car.current_agreement.driver.name if car.current_agreement else "-" }}</td>
+      <td class="text-end">
+        <a href="{{ url_for('cars.edit_car', car_id=car.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
+        {% if car.active %}
+        <form method="post" action="{{ url_for('cars.deactivate_car', car_id=car.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Desativar este carro?')">Desativar</button>
+        </form>
+        {% else %}
+        <span class="badge bg-secondary">Inativo</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Motoristas{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Motoristas</h1>
+  <a href="{{ url_for('drivers.new_driver') }}" class="btn btn-primary btn-sm">Novo motorista</a>
+</div>
+<table class="table bg-white">
+  <thead><tr><th>Nome</th><th>Telefone</th><th>CPF</th><th></th></tr></thead>
+  <tbody>
+    {% for driver in drivers %}
+    <tr>
+      <td><a href="{{ url_for('drivers.detail', driver_id=driver.id) }}">{{ driver.name }}</a></td>
+      <td>{{ driver.phone or "-" }}</td>
+      <td>{{ driver.document or "-" }}</td>
+      <td class="text-end">
+        <a href="{{ url_for('drivers.edit_driver', driver_id=driver.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
+        {% if driver.active %}
+        <form method="post" action="{{ url_for('drivers.deactivate_driver', driver_id=driver.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Desativar este motorista?')">Desativar</button>
+        </form>
+        {% else %}
+        <span class="badge bg-secondary">Inativo</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
