@@ -28,37 +28,36 @@ python app.py
 
 ## Deploy no Render (gratuito)
 
-### 1. Suba o código no GitHub
+O repositório já tem um [`render.yaml`](render.yaml) (Blueprint) que cria o banco PostgreSQL e o Web Service automaticamente, com o build já rodando `flask db upgrade`.
+
+### 1. Suba o código no GitHub (se ainda não tiver feito)
 ```bash
 git add .
 git commit -m "implementação inicial"
 git push
 ```
 
-### 2. Crie o banco PostgreSQL no Render
-- Dashboard → New → PostgreSQL
-- Nome: uberapp-db
-- Plano: Free
-- Copie a **Internal Database URL**
+### 2. Crie o Blueprint no Render
+- Dashboard do Render → **New** → **Blueprint**
+- Conecte o repositório `uberapp`
+- O Render detecta o `render.yaml` e mostra o banco (`hm-rent-cars-db`) e o serviço web (`hm-rent-cars`) prontos para criar
+- Clique em **Apply** / **Create**
 
-### 3. Crie o Web Service no Render
-- New → Web Service → conecte o repositório
-- Build command: `pip install -r requirements.txt && flask db upgrade`
-- Start command: `gunicorn app:app`
-- Plano: Free
+### 3. Preencha as variáveis marcadas como "sync: false"
+No serviço criado → **Environment**, complete:
+- `ANTHROPIC_API_KEY` (obrigatória para o módulo GPS)
+- `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` (opcionais, cobrança via WhatsApp)
 
-### 4. Configure as variáveis de ambiente
-No Web Service → Environment → Add todas as variáveis listadas abaixo.
+`SECRET_KEY` e `DATABASE_URL` já são gerados/conectados automaticamente pelo Blueprint.
 
-### 5. Deploy
-Clique em "Create Web Service".
-
-### 6. Crie o primeiro usuário admin
-No Render, abra um Shell do serviço (ou rode como um one-off job) e execute:
+### 4. Crie o primeiro usuário admin
+No serviço → **Shell** (ou um Job avulso) e execute:
 ```bash
 flask create-admin --username seu_usuario --password sua_senha
 ```
 Sem esse passo o sistema não tem nenhum usuário e ninguém consegue logar.
+
+**Alternativa sem Blueprint** (criar manualmente): New → PostgreSQL (plano Free) e New → Web Service (build `pip install -r requirements.txt && flask db upgrade`, start `gunicorn app:app`, plano Free), ligando o `DATABASE_URL` do banco ao serviço na aba Environment.
 
 ## Variáveis de ambiente
 
