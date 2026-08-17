@@ -1,10 +1,9 @@
 """
 Gera diariamente (via GitHub Actions) o relatório "Informações gerais (resumo)"
 de cada carro direto na API do site de rastreamento (Rastreamento BSB / MyBSB),
-cobrindo sempre as últimas 24 horas, e grava os dados na tabela `telemetria`.
-
-Não depende de e-mail: loga no site, pede o relatório de cada veículo via HTTP
-e já recebe o HTML de volta na resposta.
+cobrindo sempre as últimas 24 horas, e grava uma GPSReading já confirmada
+(vem da API do rastreador, não de IA lendo um print — não precisa de revisão
+humana como o fluxo de upload manual).
 
 Variáveis de ambiente esperadas:
   SITE_EMAIL     - e-mail de login do site de rastreamento
@@ -12,13 +11,13 @@ Variáveis de ambiente esperadas:
 """
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from urllib.parse import unquote
 
 import requests
 
-from models import get_db
-from gps_reader import verificar_alertas
+from extensions import db
+from models import Car, GPSReading
 
 BASE_URL = 'https://mybsb.rastreamentobsb.com.br'
 TZ_SP = 'America/Sao_Paulo'
@@ -112,6 +111,39 @@ def gerar_relatorio_html(session, csrf_token, device_id, datetime_from, datetime
     return resp.text
 
 
+def _parse_num(texto):
+    # O relatório usa ponto como separador decimal (ex: "248.64 Km"), sem
+    # separador de milhar — só troca vírgula por ponto por segurança.
+    m = re.search(r'([\d.,]+)', texto or '')
+    return float(m.group(1).replace(',', '.')) if m else None
+
+
+def _parse_data(texto):
+    try:
+        return datetime.strptime(texto, '%d-%m-%Y %H:%M:%S').strftime('%Y-%m-%d %H:%M')
+    except (ValueError, TypeError):
+        return None
+
+
+def _parse_duracao_minutos(texto):
+    """Converte '34h 6min 18s' em minutos totais (arredondando os segundos)."""
+    if not texto:
+        return None
+    h = re.search(r'(\d+)\s*h', texto)
+    m = re.search(r'(\d+)\s*min', texto)
+    s = re.search(r'(\d+)\s*s', texto)
+    if not (h or m or s):
+        return None
+    total = 0
+    if h:
+        total += int(h.group(1)) * 60
+    if m:
+        total += int(m.group(1))
+    if s:
+        total += round(int(s.group(1)) / 60)
+    return total
+
+
 def parsear_relatorio_html(html):
     """Extrai a única linha de dados do relatório 'Informações gerais (resumo)'."""
     if 'Informações gerais (resumo)' not in html:
@@ -132,136 +164,121 @@ def parsear_relatorio_html(html):
     placa = partes[1] if len(partes) > 1 else None
     apelido = partes[2] if len(partes) > 2 else None
 
-    def parse_num(texto):
-        # O relatório usa ponto como separador decimal (ex: "248.64 Km"), sem
-        # separador de milhar — só troca vírgula por ponto por segurança.
-        m = re.search(r'([\d.,]+)', texto)
-        return float(m.group(1).replace(',', '.')) if m else None
-
-    def parse_data(texto):
-        try:
-            return datetime.strptime(texto, '%d-%m-%Y %H:%M:%S').strftime('%Y-%m-%d %H:%M')
-        except ValueError:
-            return None
-
     return {
         'motorista': motorista,
         'placa': placa,
         'apelido': apelido,
-        'periodo_inicio': parse_data(inicio),
-        'periodo_fim': parse_data(fim),
-        'km_rodados': parse_num(distancia),
-        'duracao_movimento': tempo_desloc or None,
-        'tempo_parado': tempo_parado or None,
-        'velocidade_maxima': parse_num(vel_max),
-        'horas_motor': None,
+        'periodo_inicio': _parse_data(inicio),
+        'periodo_fim': _parse_data(fim),
+        'km_rodados': _parse_num(distancia),
+        'tempo_em_movimento_minutos': _parse_duracao_minutos(tempo_desloc),
+        'velocidade_maxima': _parse_num(vel_max),
     }
 
 
-def resolver_carro(cur, ph, dados):
-    """Acha o carro pela placa; se não achar, tenta casar o apelido do carro
-    (nome) dentro do texto do dispositivo e, nesse caso, já corrige a placa."""
-    placa = (dados.get('placa') or '').strip()
-    if placa:
-        cur.execute(f"SELECT id FROM carros WHERE UPPER(REPLACE(placa,' ','')) = {ph}",
-                     (placa.upper().replace(' ', ''),))
-        row = cur.fetchone()
-        if row:
-            return row['id'] if hasattr(row, 'keys') else row[0]
+def _normalizar_placa(placa):
+    return (placa or '').upper().replace(' ', '').replace('-', '')
 
-    apelido = (dados.get('apelido') or '').replace(' ', '').upper()
-    if apelido:
-        cur.execute("SELECT id, nome, placa FROM carros")
-        for row in cur.fetchall():
-            nome = (row['nome'] if hasattr(row, 'keys') else row[1]) or ''
-            carro_id = row['id'] if hasattr(row, 'keys') else row[0]
-            nome_norm = nome.replace(' ', '').upper()
-            if nome_norm and (nome_norm in apelido or apelido in nome_norm):
+
+def resolver_carro(placa, apelido):
+    """Acha o Car pela placa; se não achar, tenta casar o apelido do carro
+    (Car.model) dentro do texto do dispositivo e, nesse caso, já corrige a placa."""
+    placa_norm = _normalizar_placa(placa)
+    if placa_norm:
+        for carro in Car.query.filter_by(active=True).all():
+            if _normalizar_placa(carro.plate) == placa_norm:
+                return carro
+
+    apelido_norm = (apelido or '').replace(' ', '').upper()
+    if apelido_norm:
+        for carro in Car.query.filter_by(active=True).all():
+            modelo_norm = (carro.model or '').replace(' ', '').upper()
+            if modelo_norm and (modelo_norm in apelido_norm or apelido_norm in modelo_norm):
                 if placa:
-                    cur.execute(f"UPDATE carros SET placa = {ph} WHERE id = {ph}", (placa, carro_id))
-                return carro_id
+                    carro.plate = placa
+                    db.session.commit()
+                return carro
     return None
 
 
-def salvar_telemetria(dados, carro_id, conn, driver):
-    ph = '%s' if driver == 'pg' else '?'
-    semana_ref = None
+def salvar_leitura_automatica(dados, carro):
+    """Grava uma GPSReading já 'confirmed' (sem revisão humana) a partir do
+    relatório da API do rastreador, e atualiza o current_km do carro (o
+    relatório dá KM rodado no período, então soma ao km atual — e só avança
+    o odômetro do carro se o resultado for maior que o atual, mesma regra
+    usada na revisão manual)."""
+    km_delta = dados.get('km_rodados') or 0
+    km_base = carro.current_km or 0
+    km_confirmado = round(km_base + km_delta)
+
+    vel = dados.get('velocidade_maxima')
+    vel_int = round(vel) if vel is not None else None
+
+    reading_date = date.today()
     if dados.get('periodo_fim'):
         try:
-            dt = datetime.strptime(dados['periodo_fim'][:10], '%Y-%m-%d')
-            semana_ref = dt.strftime('%Y-W%W')
+            reading_date = datetime.strptime(dados['periodo_fim'][:10], '%Y-%m-%d').date()
         except ValueError:
             pass
 
-    cur = conn.cursor()
-    cur.execute(f'''
-        INSERT INTO telemetria
-        (carro_id, periodo_inicio, periodo_fim, semana_ref, km_rodados,
-         duracao_movimento, tempo_parado, velocidade_maxima, horas_motor,
-         motorista_nome, placa, imagem_path)
-        VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})
-    ''', (
-        carro_id,
-        dados.get('periodo_inicio'),
-        dados.get('periodo_fim'),
-        semana_ref,
-        dados.get('km_rodados'),
-        dados.get('duracao_movimento'),
-        dados.get('tempo_parado'),
-        dados.get('velocidade_maxima'),
-        dados.get('horas_motor'),
-        dados.get('motorista'),
-        dados.get('placa'),
-        'relatorio_gps@rastreamento',
-    ))
+    leitura = GPSReading(
+        car_id=carro.id,
+        image_filename=f"relatorio-gps-automatico:{dados.get('placa')}:{dados.get('periodo_fim')}",
+        extracted_km=km_confirmado,
+        extracted_max_speed=vel_int,
+        extracted_moving_time_minutes=dados.get('tempo_em_movimento_minutos'),
+        raw_ai_response=None,
+        confidence_note=f"Gerado automaticamente via API do rastreador (placa {dados.get('placa')}).",
+        status='confirmed',
+        confirmed_km=km_confirmado,
+        confirmed_max_speed=vel_int,
+        confirmed_moving_time_minutes=dados.get('tempo_em_movimento_minutos'),
+        reading_date=reading_date,
+    )
+    db.session.add(leitura)
 
-    if dados.get('km_rodados'):
-        cur.execute(f'UPDATE carros SET km_atual = km_atual + {ph} WHERE id = {ph}',
-                    (dados['km_rodados'], carro_id))
+    if km_confirmado > km_base:
+        carro.current_km = km_confirmado
 
-    conn.commit()
-    verificar_alertas(carro_id, conn, driver)
+    db.session.commit()
+    return leitura
 
 
-def processar():
+def processar(app):
     datetime_from, datetime_to = periodo_ultimas_24h()
 
     session = requests.Session()
     session.headers['User-Agent'] = 'uberapp-relatorio-gps/1.0'
     csrf_token = login(session)
 
-    conn, driver = get_db()
-    cur = conn.cursor()
-    ph = '%s' if driver == 'pg' else '?'
-
     gravados = 0
-    try:
-        for carro in CARROS_MONITORADOS:
+    with app.app_context():
+        for carro_cfg in CARROS_MONITORADOS:
             try:
-                html = gerar_relatorio_html(session, csrf_token, carro['device_id'],
+                html = gerar_relatorio_html(session, csrf_token, carro_cfg['device_id'],
                                              datetime_from, datetime_to)
                 dados = parsear_relatorio_html(html)
                 if not dados or not dados.get('placa'):
-                    print(f"Não consegui extrair dados para a placa {carro['placa']}")
+                    print(f"Não consegui extrair dados para a placa {carro_cfg['placa']}")
                     continue
 
-                carro_id = resolver_carro(cur, ph, dados)
-                if carro_id is None:
+                carro = resolver_carro(dados.get('placa'), dados.get('apelido'))
+                if carro is None:
                     print(f"Carro não encontrado no banco para a placa {dados['placa']}")
                     continue
 
-                salvar_telemetria(dados, carro_id, conn, driver)
+                salvar_leitura_automatica(dados, carro)
                 gravados += 1
-                print(f"OK: placa={dados['placa']} km={dados.get('km_rodados')} "
-                      f"periodo={dados.get('periodo_inicio')} -> {dados.get('periodo_fim')}")
+                print(f"OK: placa={dados['placa']} km_rodados={dados.get('km_rodados')} "
+                      f"km_atual={carro.current_km} periodo={dados.get('periodo_inicio')} "
+                      f"-> {dados.get('periodo_fim')}")
             except Exception as exc:
                 # Um carro falhar (rede, sessão, etc.) não deve impedir os demais.
-                print(f"Falha ao processar placa {carro['placa']}: {exc}")
-    finally:
-        conn.close()
+                print(f"Falha ao processar placa {carro_cfg['placa']}: {exc}")
 
-    print(f'{gravados} relatório(s) gravado(s).')
+    print(f'{gravados} leitura(s) gravada(s).')
 
 
 if __name__ == '__main__':
-    processar()
+    from app import app as flask_app
+    processar(flask_app)

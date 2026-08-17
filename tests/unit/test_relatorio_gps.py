@@ -71,6 +71,15 @@ class TestParsearRelatorioHtml:
         dados = rg.parsear_relatorio_html(html)
         assert dados['velocidade_maxima'] == 146.0
 
+    def test_tempo_de_deslocamento_convertido_em_minutos(self):
+        html = _linha_relatorio(
+            'HENRIQUE - FJU-4E83 - HB20S',
+            '10-08-2026 04:55:00', '16-08-2026 23:15:31', '10 Km',
+            tempo_desloc='2h 30min 45s',
+        )
+        dados = rg.parsear_relatorio_html(html)
+        assert dados['tempo_em_movimento_minutos'] == 2 * 60 + 30 + 1  # 45s arredonda p/ 1min
+
     def test_datas_convertidas_para_formato_do_banco(self):
         html = _linha_relatorio(
             'HENRIQUE - FJU-4E83 - HB20S',
