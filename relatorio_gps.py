@@ -235,24 +235,31 @@ def processar():
     ph = '%s' if driver == 'pg' else '?'
 
     gravados = 0
-    for carro in CARROS_MONITORADOS:
-        html = gerar_relatorio_html(session, csrf_token, carro['device_id'], datetime_from, datetime_to)
-        dados = parsear_relatorio_html(html)
-        if not dados or not dados.get('placa'):
-            print(f"Não consegui extrair dados para a placa {carro['placa']}")
-            continue
+    try:
+        for carro in CARROS_MONITORADOS:
+            try:
+                html = gerar_relatorio_html(session, csrf_token, carro['device_id'],
+                                             datetime_from, datetime_to)
+                dados = parsear_relatorio_html(html)
+                if not dados or not dados.get('placa'):
+                    print(f"Não consegui extrair dados para a placa {carro['placa']}")
+                    continue
 
-        carro_id = resolver_carro(cur, ph, dados)
-        if carro_id is None:
-            print(f"Carro não encontrado no banco para a placa {dados['placa']}")
-            continue
+                carro_id = resolver_carro(cur, ph, dados)
+                if carro_id is None:
+                    print(f"Carro não encontrado no banco para a placa {dados['placa']}")
+                    continue
 
-        salvar_telemetria(dados, carro_id, conn, driver)
-        gravados += 1
-        print(f"OK: placa={dados['placa']} km={dados.get('km_rodados')} "
-              f"periodo={dados.get('periodo_inicio')} -> {dados.get('periodo_fim')}")
+                salvar_telemetria(dados, carro_id, conn, driver)
+                gravados += 1
+                print(f"OK: placa={dados['placa']} km={dados.get('km_rodados')} "
+                      f"periodo={dados.get('periodo_inicio')} -> {dados.get('periodo_fim')}")
+            except Exception as exc:
+                # Um carro falhar (rede, sessão, etc.) não deve impedir os demais.
+                print(f"Falha ao processar placa {carro['placa']}: {exc}")
+    finally:
+        conn.close()
 
-    conn.close()
     print(f'{gravados} relatório(s) gravado(s).')
 
 
