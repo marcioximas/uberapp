@@ -1,0 +1,27 @@
+name: Relatório diário GPS
+
+on:
+  schedule:
+    # 08:00 horário de Brasília (UTC-3, sem horário de verão) = 11:00 UTC
+    - cron: '0 11 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  relatorio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Gerar relatórios e gravar no banco
+        env:
+          SITE_EMAIL: ${{ secrets.SITE_EMAIL }}
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python relatorio_gps.py
