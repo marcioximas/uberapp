@@ -48,6 +48,46 @@
   <a href="{{ url_for('maintenance.alertas') }}" class="btn btn-outline-secondary btn-sm">Ver alertas de manutenção</a>
 </div>
 
+<style>
+  .grafico-km-bar { fill: #2a78d6; cursor: pointer; }
+  .grafico-km-bar:hover, .grafico-km-bar:focus { fill: #1c5cab; outline: none; }
+  .grafico-km-grade { stroke: #e1e0d9; stroke-width: 1; }
+  .grafico-km-eixo { stroke: #c3c2b7; stroke-width: 1; }
+  .grafico-km-texto-mes { fill: #898781; font-size: 11px; }
+  .grafico-km-texto-valor { fill: #898781; font-size: 10px; }
+  .grafico-km-label-atual { fill: #0b0b0b; font-size: 12px; font-weight: 600; }
+</style>
+<h2 class="h5">KM rodado por mês (frota)</h2>
+<div class="card bg-white mb-4">
+  <div class="card-body">
+    {% set g = grafico_km_mes %}
+    {% if g.barras|sum(attribute="km") == 0 %}
+      <p class="text-muted mb-0">Nenhuma leitura de GPS confirmada ainda.</p>
+    {% else %}
+    <svg viewBox="0 0 {{ g.largura }} {{ g.altura }}" width="100%" role="img"
+         aria-label="Gráfico de barras: quilômetros rodados pela frota por mês">
+      {% for grade in g.grades %}
+      <line class="grafico-km-grade" x1="{{ g.x_esq }}" x2="{{ g.x_dir }}" y1="{{ grade.y }}" y2="{{ grade.y }}"></line>
+      <text class="grafico-km-texto-valor" x="{{ g.x_esq }}" y="{{ grade.y - 4 }}">{{ "{:,}".format(grade.valor).replace(",", ".") }} km</text>
+      {% endfor %}
+      <line class="grafico-km-eixo" x1="{{ g.x_esq }}" x2="{{ g.x_dir }}" y1="{{ g.baseline_y }}" y2="{{ g.baseline_y }}"></line>
+
+      {% for barra in g.barras %}
+      {% if barra.path %}
+      <path class="grafico-km-bar" d="{{ barra.path }}" tabindex="0">
+        <title>{{ barra.label_mes }}: {{ "{:,}".format(barra.km).replace(",", ".") }} km</title>
+      </path>
+      {% endif %}
+      {% if barra.eh_ultimo %}
+      <text class="grafico-km-label-atual" x="{{ barra.cx }}" y="{{ [barra.y - 6, 12]|max }}" text-anchor="middle">{{ "{:,}".format(barra.km).replace(",", ".") }}</text>
+      {% endif %}
+      <text class="grafico-km-texto-mes" x="{{ barra.cx }}" y="{{ g.baseline_y + 16 }}" text-anchor="middle">{{ barra.label_mes }}</text>
+      {% endfor %}
+    </svg>
+    {% endif %}
+  </div>
+</div>
+
 <h2 class="h5">Ranking de margem por carro (mês atual)</h2>
 {% if not ranking_margem %}
   <p class="text-muted">Nenhum lançamento confirmado neste mês ainda.</p>
