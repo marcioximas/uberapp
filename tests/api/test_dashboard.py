@@ -82,6 +82,24 @@ class TestKmRodadoPorMes:
         labels = [d["label"] for d in _km_rodado_por_mes(meses=3)]
         assert labels == ["Jun/26", "Jul/26", "Ago/26"]
 
+    def test_filtra_por_carro_quando_car_id_informado(self, app, db, monkeypatch):
+        monkeypatch.setattr("blueprints.dashboard.date", _FakeDate)
+        c1 = Car(plate="AAA0001", model="Onix")
+        c2 = Car(plate="BBB0002", model="Gol")
+        db.session.add_all([c1, c2])
+        db.session.commit()
+
+        _leitura(db, c1.id, date(2026, 8, 1), 500)
+        _leitura(db, c1.id, date(2026, 8, 10), 900)
+        _leitura(db, c2.id, date(2026, 8, 1), 100)
+        _leitura(db, c2.id, date(2026, 8, 10), 250)
+
+        total_frota = {d["label"]: d["km"] for d in _km_rodado_por_mes(meses=1)}
+        so_c1 = {d["label"]: d["km"] for d in _km_rodado_por_mes(meses=1, car_id=c1.id)}
+
+        assert total_frota["Ago/26"] == 550
+        assert so_c1["Ago/26"] == 400
+
 
 class TestGraficoKmSvg:
     def test_barra_sem_km_nao_gera_path(self):
@@ -106,3 +124,23 @@ class TestGraficoKmSvg:
         valores = [grade["valor"] for grade in g["grades"]]
         assert valores[0] == 0
         assert valores[-1] > 0
+
+
+class TestFiltroNaRota:
+    def test_km_meses_invalido_cai_pro_padrao_de_6(self, auth_client, db):
+        resp = auth_client.get("/?km_meses=999")
+        assert resp.status_code == 200
+        assert b'value="6" selected' in resp.data
+
+    def test_km_car_id_de_carro_inexistente_nao_quebra(self, auth_client, db):
+        resp = auth_client.get("/?km_car_id=999999")
+        assert resp.status_code == 200
+        assert "(frota)".encode() in resp.data
+
+    def test_filtro_por_carro_troca_titulo_do_grafico(self, auth_client, db):
+        car = Car(plate="AAA0001", model="Onix")
+        db.session.add(car)
+        db.session.commit()
+
+        resp = auth_client.get(f"/?km_car_id={car.id}")
+        assert f"({car.plate})".encode() in resp.data

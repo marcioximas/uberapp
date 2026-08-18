@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 from collections import defaultdict
 
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, request
 from flask_login import login_required
 
 from models import (
@@ -71,8 +71,9 @@ def _margem_por_carro():
 _NOMES_MES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 
 
-def _km_rodado_por_mes(meses=6):
-    """KM rodado agregado da frota, por mês, nos últimos `meses` (incluindo o atual).
+def _km_rodado_por_mes(meses=6, car_id=None):
+    """KM rodado por mês, nos últimos `meses` (incluindo o atual) — agregado
+    da frota inteira, ou de um único carro se `car_id` for informado.
 
     Cada GPSReading.confirmed_km é uma leitura de odômetro (absoluta), não um
     delta — então o KM rodado num mês é a soma dos avanços positivos entre
@@ -92,13 +93,14 @@ def _km_rodado_por_mes(meses=6):
 
     km_por_mes = {chave: 0 for chave in baldes}
 
-    leituras = (
-        GPSReading.query.filter(
-            GPSReading.confirmed_km.isnot(None), GPSReading.reading_date.isnot(None)
-        )
-        .order_by(GPSReading.car_id, GPSReading.reading_date, GPSReading.created_at)
-        .all()
+    query = GPSReading.query.filter(
+        GPSReading.confirmed_km.isnot(None), GPSReading.reading_date.isnot(None)
     )
+    if car_id is not None:
+        query = query.filter(GPSReading.car_id == car_id)
+    leituras = query.order_by(
+        GPSReading.car_id, GPSReading.reading_date, GPSReading.created_at
+    ).all()
     ultimo_km_por_carro = {}
     for leitura in leituras:
         anterior = ultimo_km_por_carro.get(leitura.car_id)
@@ -211,7 +213,15 @@ def index():
 
     total_carros = Car.query.filter_by(active=True).count()
     ranking_margem = _margem_por_carro()
-    grafico_km_mes = _grafico_km_svg(_km_rodado_por_mes())
+
+    carros_ativos = Car.query.filter_by(active=True).order_by(Car.plate).all()
+    km_meses = request.args.get("km_meses", default=6, type=int)
+    if km_meses not in (3, 6, 12):
+        km_meses = 6
+    km_car_id = request.args.get("km_car_id", type=int)
+    if km_car_id is not None and km_car_id not in {c.id for c in carros_ativos}:
+        km_car_id = None
+    grafico_km_mes = _grafico_km_svg(_km_rodado_por_mes(meses=km_meses, car_id=km_car_id))
 
     return render_template(
         "dashboard/index.html",
@@ -220,4 +230,7 @@ def index():
         total_carros=total_carros,
         ranking_margem=ranking_margem,
         grafico_km_mes=grafico_km_mes,
+        carros_ativos=carros_ativos,
+        km_meses=km_meses,
+        km_car_id=km_car_id,
     )
