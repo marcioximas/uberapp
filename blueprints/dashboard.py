@@ -71,52 +71,58 @@ def _margem_por_carro():
 _NOMES_MES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 
 
-def _km_rodado_por_mes(meses=6, car_id=None):
-    """KM rodado por mês, nos últimos `meses` (incluindo o atual) — agregado
-    da frota inteira, ou de um único carro se `car_id` for informado.
+def _km_deltas_por_carro_e_mes():
+    """Retorna um dict {(car_id, ano, mes): km} com o KM rodado por cada carro
+    em cada mês.
 
     Cada GPSReading.confirmed_km é uma leitura de odômetro (absoluta), não um
     delta — então o KM rodado num mês é a soma dos avanços positivos entre
     leituras consecutivas do mesmo carro cuja leitura mais recente do par caiu
     naquele mês.
     """
+    deltas = defaultdict(float)
+    leituras = (
+        GPSReading.query.filter(
+            GPSReading.confirmed_km.isnot(None), GPSReading.reading_date.isnot(None)
+        )
+        .order_by(GPSReading.car_id, GPSReading.reading_date, GPSReading.created_at)
+        .all()
+    )
+    ultimo_km_por_carro = {}
+    for leitura in leituras:
+        anterior = ultimo_km_por_carro.get(leitura.car_id)
+        if anterior is not None and leitura.confirmed_km > anterior:
+            chave = (leitura.car_id, leitura.reading_date.year, leitura.reading_date.month)
+            deltas[chave] += leitura.confirmed_km - anterior
+        ultimo_km_por_carro[leitura.car_id] = leitura.confirmed_km
+    return deltas
+
+
+def _km_por_carro_no_mes(ano, mes, carros):
+    deltas = _km_deltas_por_carro_e_mes()
+    return [
+        {"label": carro.plate, "km": deltas.get((carro.id, ano, mes), 0)}
+        for carro in carros
+    ]
+
+
+def _meses_disponiveis(quantidade=12):
+    """Últimos `quantidade` meses (incluindo o atual), do mais recente pro
+    mais antigo — usado pra popular o seletor de mês do gráfico de KM."""
     hoje = date.today()
-    baldes = []
     ano, mes = hoje.year, hoje.month
-    for i in range(meses - 1, -1, -1):
+    meses = []
+    for i in range(quantidade):
         m = mes - i
         a = ano
         while m <= 0:
             m += 12
             a -= 1
-        baldes.append((a, m))
-
-    km_por_mes = {chave: 0 for chave in baldes}
-
-    query = GPSReading.query.filter(
-        GPSReading.confirmed_km.isnot(None), GPSReading.reading_date.isnot(None)
-    )
-    if car_id is not None:
-        query = query.filter(GPSReading.car_id == car_id)
-    leituras = query.order_by(
-        GPSReading.car_id, GPSReading.reading_date, GPSReading.created_at
-    ).all()
-    ultimo_km_por_carro = {}
-    for leitura in leituras:
-        anterior = ultimo_km_por_carro.get(leitura.car_id)
-        if anterior is not None and leitura.confirmed_km > anterior:
-            chave = (leitura.reading_date.year, leitura.reading_date.month)
-            if chave in km_por_mes:
-                km_por_mes[chave] += leitura.confirmed_km - anterior
-        ultimo_km_por_carro[leitura.car_id] = leitura.confirmed_km
-
-    return [
-        {"label": f"{_NOMES_MES[m - 1]}/{str(a)[2:]}", "km": km_por_mes[(a, m)]}
-        for (a, m) in baldes
-    ]
+        meses.append({"value": f"{a:04d}-{m:02d}", "label": f"{_NOMES_MES[m - 1]}/{str(a)[2:]}", "ano": a, "mes": m})
+    return meses
 
 
-def _grafico_km_svg(dados_mensais):
+def _grafico_km_svg(dados):
     """Monta a geometria (em px) de um gráfico de barras simples, pra desenhar
     em SVG no template sem depender de nenhuma lib de gráfico em JS."""
     largura, altura = 640, 220
@@ -125,7 +131,7 @@ def _grafico_km_svg(dados_mensais):
     plot_h = altura - margem_topo - margem_baixo
     baseline_y = margem_topo + plot_h
 
-    valores = [d["km"] for d in dados_mensais]
+    valores = [d["km"] for d in dados]
     maximo = max(valores) if valores else 0
 
     passos = (10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000)
@@ -136,13 +142,13 @@ def _grafico_km_svg(dados_mensais):
     else:
         eixo_topo = maximo or 1
 
-    n = len(dados_mensais) or 1
+    n = len(dados) or 1
     slot_w = plot_w / n
     bar_w = min(24, slot_w * 0.55)
     raio = 4
 
     barras = []
-    for i, d in enumerate(dados_mensais):
+    for i, d in enumerate(dados):
         cx = margem_esq + slot_w * i + slot_w / 2
         x = cx - bar_w / 2
         h = (d["km"] / eixo_topo) * plot_h if eixo_topo else 0
@@ -169,9 +175,8 @@ def _grafico_km_svg(dados_mensais):
             "path": path,
             "cx": cx,
             "y": y,
-            "label_mes": d["label"],
+            "label": d["label"],
             "km": d["km"],
-            "eh_ultimo": i == n - 1,
         })
 
     grades = []
@@ -215,13 +220,16 @@ def index():
     ranking_margem = _margem_por_carro()
 
     carros_ativos = Car.query.filter_by(active=True).order_by(Car.plate).all()
-    km_meses = request.args.get("km_meses", default=6, type=int)
-    if km_meses not in (3, 6, 12):
-        km_meses = 6
-    km_car_id = request.args.get("km_car_id", type=int)
-    if km_car_id is not None and km_car_id not in {c.id for c in carros_ativos}:
-        km_car_id = None
-    grafico_km_mes = _grafico_km_svg(_km_rodado_por_mes(meses=km_meses, car_id=km_car_id))
+
+    meses_disponiveis = _meses_disponiveis()
+    km_mes = request.args.get("km_mes", default="")
+    mes_selecionado = next((m for m in meses_disponiveis if m["value"] == km_mes), None)
+    if mes_selecionado is None:
+        mes_selecionado = meses_disponiveis[0]
+        km_mes = mes_selecionado["value"]
+    grafico_km_carro = _grafico_km_svg(
+        _km_por_carro_no_mes(mes_selecionado["ano"], mes_selecionado["mes"], carros_ativos)
+    )
 
     return render_template(
         "dashboard/index.html",
@@ -229,8 +237,9 @@ def index():
         alertas_manutencao=alertas_manutencao,
         total_carros=total_carros,
         ranking_margem=ranking_margem,
-        grafico_km_mes=grafico_km_mes,
+        grafico_km_carro=grafico_km_carro,
         carros_ativos=carros_ativos,
-        km_meses=km_meses,
-        km_car_id=km_car_id,
+        meses_disponiveis=meses_disponiveis,
+        km_mes=km_mes,
+        mes_selecionado=mes_selecionado,
     )

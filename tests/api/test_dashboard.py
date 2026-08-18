@@ -1,6 +1,11 @@
 from datetime import date
 
-from blueprints.dashboard import _km_rodado_por_mes, _grafico_km_svg
+from blueprints.dashboard import (
+    _km_deltas_por_carro_e_mes,
+    _km_por_carro_no_mes,
+    _meses_disponiveis,
+    _grafico_km_svg,
+)
 from models import Car, GPSReading
 
 
@@ -18,9 +23,8 @@ def _leitura(db, car_id, dia, km):
     return r
 
 
-class TestKmRodadoPorMes:
-    def test_soma_deltas_dentro_do_mesmo_mes(self, app, db, monkeypatch):
-        monkeypatch.setattr("blueprints.dashboard.date", _FakeDate)
+class TestKmDeltasPorCarroEMes:
+    def test_soma_deltas_dentro_do_mesmo_mes(self, app, db):
         car = Car(plate="AAA0001", model="Onix")
         db.session.add(car)
         db.session.commit()
@@ -28,11 +32,10 @@ class TestKmRodadoPorMes:
         _leitura(db, car.id, date(2026, 8, 1), 100)
         _leitura(db, car.id, date(2026, 8, 15), 350)
 
-        resultado = {d["label"]: d["km"] for d in _km_rodado_por_mes(meses=1)}
-        assert resultado["Ago/26"] == 250
+        deltas = _km_deltas_por_carro_e_mes()
+        assert deltas[(car.id, 2026, 8)] == 250
 
-    def test_delta_e_atribuido_ao_mes_da_leitura_mais_recente(self, app, db, monkeypatch):
-        monkeypatch.setattr("blueprints.dashboard.date", _FakeDate)
+    def test_delta_e_atribuido_ao_mes_da_leitura_mais_recente(self, app, db):
         car = Car(plate="AAA0001", model="Onix")
         db.session.add(car)
         db.session.commit()
@@ -40,12 +43,11 @@ class TestKmRodadoPorMes:
         _leitura(db, car.id, date(2026, 7, 28), 500)  # início do avanço
         _leitura(db, car.id, date(2026, 8, 3), 900)  # avanço "cai" em agosto
 
-        dados = {d["label"]: d["km"] for d in _km_rodado_por_mes(meses=2)}
-        assert dados["Jul/26"] == 0
-        assert dados["Ago/26"] == 400
+        deltas = _km_deltas_por_carro_e_mes()
+        assert (car.id, 2026, 7) not in deltas
+        assert deltas[(car.id, 2026, 8)] == 400
 
-    def test_soma_varios_carros_no_mesmo_mes(self, app, db, monkeypatch):
-        monkeypatch.setattr("blueprints.dashboard.date", _FakeDate)
+    def test_nao_mistura_carros_diferentes(self, app, db):
         c1 = Car(plate="AAA0001", model="Onix")
         c2 = Car(plate="BBB0002", model="Gol")
         db.session.add_all([c1, c2])
@@ -56,13 +58,13 @@ class TestKmRodadoPorMes:
         _leitura(db, c2.id, date(2026, 8, 1), 0)
         _leitura(db, c2.id, date(2026, 8, 10), 60)
 
-        dados = {d["label"]: d["km"] for d in _km_rodado_por_mes(meses=1)}
-        assert dados["Ago/26"] == 160
+        deltas = _km_deltas_por_carro_e_mes()
+        assert deltas[(c1.id, 2026, 8)] == 100
+        assert deltas[(c2.id, 2026, 8)] == 60
 
-    def test_ignora_leitura_que_regride_o_odometro(self, app, db, monkeypatch):
+    def test_ignora_leitura_que_regride_o_odometro(self, app, db):
         # Não deveria acontecer na prática, mas uma leitura ruim não pode
         # gerar "km negativo" no gráfico.
-        monkeypatch.setattr("blueprints.dashboard.date", _FakeDate)
         car = Car(plate="AAA0001", model="Onix")
         db.session.add(car)
         db.session.commit()
@@ -70,20 +72,12 @@ class TestKmRodadoPorMes:
         _leitura(db, car.id, date(2026, 8, 1), 500)
         _leitura(db, car.id, date(2026, 8, 10), 100)  # regressão
 
-        dados = {d["label"]: d["km"] for d in _km_rodado_por_mes(meses=1)}
-        assert dados["Ago/26"] == 0
+        deltas = _km_deltas_por_carro_e_mes()
+        assert (car.id, 2026, 8) not in deltas
 
-    def test_sem_leituras_retorna_zero_para_todos_os_meses(self, app, db, monkeypatch):
-        monkeypatch.setattr("blueprints.dashboard.date", _FakeDate)
-        assert all(d["km"] == 0 for d in _km_rodado_por_mes(meses=6))
 
-    def test_retorna_meses_na_ordem_cronologica(self, app, db, monkeypatch):
-        monkeypatch.setattr("blueprints.dashboard.date", _FakeDate)
-        labels = [d["label"] for d in _km_rodado_por_mes(meses=3)]
-        assert labels == ["Jun/26", "Jul/26", "Ago/26"]
-
-    def test_filtra_por_carro_quando_car_id_informado(self, app, db, monkeypatch):
-        monkeypatch.setattr("blueprints.dashboard.date", _FakeDate)
+class TestKmPorCarroNoMes:
+    def test_retorna_um_item_por_carro_na_ordem_recebida(self, app, db):
         c1 = Car(plate="AAA0001", model="Onix")
         c2 = Car(plate="BBB0002", model="Gol")
         db.session.add_all([c1, c2])
@@ -94,53 +88,64 @@ class TestKmRodadoPorMes:
         _leitura(db, c2.id, date(2026, 8, 1), 100)
         _leitura(db, c2.id, date(2026, 8, 10), 250)
 
-        total_frota = {d["label"]: d["km"] for d in _km_rodado_por_mes(meses=1)}
-        so_c1 = {d["label"]: d["km"] for d in _km_rodado_por_mes(meses=1, car_id=c1.id)}
+        dados = _km_por_carro_no_mes(2026, 8, [c1, c2])
+        assert dados == [
+            {"label": "AAA0001", "km": 400},
+            {"label": "BBB0002", "km": 150},
+        ]
 
-        assert total_frota["Ago/26"] == 550
-        assert so_c1["Ago/26"] == 400
+    def test_carro_sem_leitura_no_mes_aparece_com_zero(self, app, db):
+        car = Car(plate="AAA0001", model="Onix")
+        db.session.add(car)
+        db.session.commit()
+
+        dados = _km_por_carro_no_mes(2026, 8, [car])
+        assert dados == [{"label": "AAA0001", "km": 0}]
+
+
+class TestMesesDisponiveis:
+    def test_retorna_do_mes_atual_pro_mais_antigo(self, monkeypatch):
+        monkeypatch.setattr("blueprints.dashboard.date", _FakeDate)
+        meses = _meses_disponiveis(quantidade=3)
+        assert [m["value"] for m in meses] == ["2026-08", "2026-07", "2026-06"]
+        assert [m["label"] for m in meses] == ["Ago/26", "Jul/26", "Jun/26"]
+
+    def test_atravessa_virada_de_ano(self, monkeypatch):
+        monkeypatch.setattr("blueprints.dashboard.date", _FakeDate)
+        meses = _meses_disponiveis(quantidade=10)
+        ultimo = meses[-1]
+        assert ultimo["value"] == "2025-11"
+        assert ultimo["label"] == "Nov/25"
 
 
 class TestGraficoKmSvg:
     def test_barra_sem_km_nao_gera_path(self):
-        g = _grafico_km_svg([{"label": "Jan/26", "km": 0}])
+        g = _grafico_km_svg([{"label": "AAA0001", "km": 0}])
         assert g["barras"][0]["path"] is None
 
     def test_barra_com_km_gera_path_e_altura_proporcional_ao_maximo(self):
-        dados = [{"label": "Jan/26", "km": 100}, {"label": "Fev/26", "km": 400}]
+        dados = [{"label": "AAA0001", "km": 100}, {"label": "BBB0002", "km": 400}]
         g = _grafico_km_svg(dados)
         barra_menor, barra_maior = g["barras"]
-        # a barra do mês com mais km fica mais alta (y menor, mais perto do topo)
+        # a barra do carro com mais km fica mais alta (y menor, mais perto do topo)
         assert barra_maior["y"] < barra_menor["y"]
 
-    def test_ultimo_mes_marcado_para_rotulo_direto(self):
-        dados = [{"label": "Jan/26", "km": 10}, {"label": "Fev/26", "km": 20}]
-        g = _grafico_km_svg(dados)
-        assert g["barras"][0]["eh_ultimo"] is False
-        assert g["barras"][1]["eh_ultimo"] is True
-
     def test_grades_incluem_zero_e_o_topo(self):
-        g = _grafico_km_svg([{"label": "Jan/26", "km": 300}])
+        g = _grafico_km_svg([{"label": "AAA0001", "km": 300}])
         valores = [grade["valor"] for grade in g["grades"]]
         assert valores[0] == 0
         assert valores[-1] > 0
 
 
 class TestFiltroNaRota:
-    def test_km_meses_invalido_cai_pro_padrao_de_6(self, auth_client, db):
-        resp = auth_client.get("/?km_meses=999")
+    def test_km_mes_invalido_cai_pro_mes_atual(self, auth_client, db, monkeypatch):
+        monkeypatch.setattr("blueprints.dashboard.date", _FakeDate)
+        resp = auth_client.get("/?km_mes=lixo")
         assert resp.status_code == 200
-        assert b'value="6" selected' in resp.data
+        assert b'value="2026-08" selected' in resp.data
 
-    def test_km_car_id_de_carro_inexistente_nao_quebra(self, auth_client, db):
-        resp = auth_client.get("/?km_car_id=999999")
+    def test_filtro_por_mes_troca_titulo_do_grafico(self, auth_client, db, monkeypatch):
+        monkeypatch.setattr("blueprints.dashboard.date", _FakeDate)
+        resp = auth_client.get("/?km_mes=2026-06")
         assert resp.status_code == 200
-        assert "(frota)".encode() in resp.data
-
-    def test_filtro_por_carro_troca_titulo_do_grafico(self, auth_client, db):
-        car = Car(plate="AAA0001", model="Onix")
-        db.session.add(car)
-        db.session.commit()
-
-        resp = auth_client.get(f"/?km_car_id={car.id}")
-        assert f"({car.plate})".encode() in resp.data
+        assert "KM rodado por carro (Jun/26)".encode() in resp.data

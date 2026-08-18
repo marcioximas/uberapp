@@ -58,17 +58,11 @@
   .grafico-km-label-atual { fill: #0b0b0b; font-size: 12px; font-weight: 600; }
 </style>
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-  <h2 class="h5 mb-0">KM rodado por mês {{ "(" + (carros_ativos|selectattr("id", "equalto", km_car_id)|first).plate + ")" if km_car_id else "(frota)" }}</h2>
+  <h2 class="h5 mb-0">KM rodado por carro ({{ mes_selecionado.label }})</h2>
   <form method="get" class="d-flex gap-2">
-    <select name="km_car_id" class="form-select form-select-sm" onchange="this.form.submit()" style="width: auto;">
-      <option value="">Todos os carros</option>
-      {% for carro in carros_ativos %}
-      <option value="{{ carro.id }}" {% if carro.id == km_car_id %}selected{% endif %}>{{ carro.plate }}</option>
-      {% endfor %}
-    </select>
-    <select name="km_meses" class="form-select form-select-sm" onchange="this.form.submit()" style="width: auto;">
-      {% for opcao in (3, 6, 12) %}
-      <option value="{{ opcao }}" {% if opcao == km_meses %}selected{% endif %}>Últimos {{ opcao }} meses</option>
+    <select name="km_mes" class="form-select form-select-sm" onchange="this.form.submit()" style="width: auto;">
+      {% for opcao in meses_disponiveis %}
+      <option value="{{ opcao.value }}" {% if opcao.value == km_mes %}selected{% endif %}>{{ opcao.label }}</option>
       {% endfor %}
     </select>
     <noscript><button type="submit" class="btn btn-sm btn-outline-secondary">Filtrar</button></noscript>
@@ -76,12 +70,12 @@
 </div>
 <div class="card bg-white mb-4">
   <div class="card-body">
-    {% set g = grafico_km_mes %}
+    {% set g = grafico_km_carro %}
     {% if g.barras|sum(attribute="km") == 0 %}
-      <p class="text-muted mb-0">Nenhuma leitura de GPS confirmada ainda{{ " para este carro" if km_car_id else "" }}.</p>
+      <p class="text-muted mb-0">Nenhuma leitura de GPS confirmada em {{ mes_selecionado.label }}.</p>
     {% else %}
     <svg viewBox="0 0 {{ g.largura }} {{ g.altura }}" width="100%" role="img"
-         aria-label="Gráfico de barras: quilômetros rodados pela frota por mês">
+         aria-label="Gráfico de barras: quilômetros rodados por carro em {{ mes_selecionado.label }}">
       {% for grade in g.grades %}
       <line class="grafico-km-grade" x1="{{ g.x_esq }}" x2="{{ g.x_dir }}" y1="{{ grade.y }}" y2="{{ grade.y }}"></line>
       <text class="grafico-km-texto-valor" x="{{ g.x_esq }}" y="{{ grade.y - 4 }}">{{ grade.valor|km }} km</text>
@@ -91,13 +85,11 @@
       {% for barra in g.barras %}
       {% if barra.path %}
       <path class="grafico-km-bar" d="{{ barra.path }}" tabindex="0">
-        <title>{{ barra.label_mes }}: {{ barra.km|km }} km</title>
+        <title>{{ barra.label }}: {{ barra.km|km }} km</title>
       </path>
       {% endif %}
-      {% if barra.eh_ultimo %}
       <text class="grafico-km-label-atual" x="{{ barra.cx }}" y="{{ [barra.y - 6, 12]|max }}" text-anchor="middle">{{ barra.km|km }}</text>
-      {% endif %}
-      <text class="grafico-km-texto-mes" x="{{ barra.cx }}" y="{{ g.baseline_y + 16 }}" text-anchor="middle">{{ barra.label_mes }}</text>
+      <text class="grafico-km-texto-mes" x="{{ barra.cx }}" y="{{ g.baseline_y + 16 }}" text-anchor="middle">{{ barra.label }}</text>
       {% endfor %}
     </svg>
     {% endif %}
