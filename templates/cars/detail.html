@@ -19,7 +19,7 @@
       <div class="card-body">
         <h2 class="h6">Dados</h2>
         <p class="mb-1"><strong>Modelo:</strong> {{ car.model or "-" }} ({{ car.year or "-" }})</p>
-        <p class="mb-0"><strong>KM atual:</strong> {{ car.current_km }}</p>
+        <p class="mb-0"><strong>KM atual:</strong> {{ car.current_km|km }}</p>
       </div>
     </div>
   </div>
@@ -112,7 +112,7 @@
     {% for r in car.gps_readings[:10] %}
     <tr>
       <td>{{ r.created_at.strftime("%d/%m/%Y") }}</td>
-      <td>{{ r.confirmed_km if r.confirmed_km is not none else "-" }}</td>
+      <td>{{ r.confirmed_km|km }}</td>
       <td>{{ status_badge(r.status) }}</td>
     </tr>
     {% endfor %}

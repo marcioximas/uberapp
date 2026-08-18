@@ -10,7 +10,7 @@
     <tr>
       <td>{{ l.created_at.strftime("%d/%m/%Y %H:%M") }}</td>
       <td>{{ l.car.plate }}</td>
-      <td>{{ l.confirmed_km if l.confirmed_km is not none else "-" }}</td>
+      <td>{{ l.confirmed_km|km }}</td>
       <td>{{ status_badge(l.status) }}</td>
       <td>
         {% if l.status == "pending_review" %}

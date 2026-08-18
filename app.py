@@ -1,11 +1,12 @@
 import os
+from datetime import timedelta
 
 import click
 from flask import Flask, render_template
 from dotenv import load_dotenv
 
 from extensions import db, login_manager, csrf, migrate
-from models import User
+from models import User, Car, GPSReading
 
 load_dotenv()
 
@@ -59,6 +60,18 @@ def create_app(test_config=None):
     def server_error(e):
         return render_template("errors/500.html"), 500
 
+    @app.template_filter("km")
+    def format_km(valor):
+        """Formata KM no padrão brasileiro (milhar com ponto, decimal com
+        vírgula), mostrando casas decimais só quando o valor não é inteiro —
+        necessário desde que o relatório automático de GPS passou a gravar
+        KM com frações (antes só existiam valores inteiros)."""
+        if valor is None:
+            return "-"
+        valor = float(valor)
+        texto = f"{valor:,.1f}" if valor % 1 else f"{int(valor):,}"
+        return texto.replace(",", "X").replace(".", ",").replace("X", ".")
+
     @app.cli.command("create-admin")
     @click.option("--username", prompt=True)
     @click.option("--password", prompt=True, hide_input=True, confirmation_prompt=True)
@@ -73,6 +86,53 @@ def create_app(test_config=None):
         db.session.add(user)
         db.session.commit()
         click.echo(f"Usuário '{username}' criado com sucesso.")
+
+    @app.cli.command("backfill-gps-baseline")
+    @click.option("--apply", is_flag=True, default=False,
+                  help="Grava de fato; sem essa flag só mostra o que seria feito.")
+    def backfill_gps_baseline(apply):
+        """Correção pontual: para carros que ficaram com uma única leitura de
+        GPS confirmada (sem nenhuma anterior pra comparar — ex.: primeira
+        execução da automação diária antes dela passar a gravar a baseline
+        sozinha), grava uma leitura baseline com KM 0 um dia antes, pra essa
+        leitura já entrar no gráfico de KM por mês."""
+        candidatos = []
+        for carro in Car.query.filter_by(active=True).all():
+            leituras = (
+                GPSReading.query.filter(
+                    GPSReading.car_id == carro.id, GPSReading.confirmed_km.isnot(None)
+                )
+                .order_by(GPSReading.reading_date, GPSReading.created_at)
+                .all()
+            )
+            if len(leituras) == 1:
+                candidatos.append((carro, leituras[0]))
+
+        if not candidatos:
+            click.echo("Nenhum carro com leitura solta (sem baseline) encontrado.")
+            return
+
+        for carro, leitura in candidatos:
+            baseline_date = leitura.reading_date - timedelta(days=1) if leitura.reading_date else None
+            click.echo(
+                f"{carro.plate}: leitura única confirmed_km={leitura.confirmed_km} "
+                f"em {leitura.reading_date} -> baseline confirmed_km=0 em {baseline_date}"
+            )
+            if apply:
+                db.session.add(GPSReading(
+                    car_id=carro.id,
+                    image_filename=f"backfill-baseline:{carro.plate}",
+                    confidence_note="Leitura baseline gravada manualmente via backfill (correção pontual).",
+                    status="confirmed",
+                    confirmed_km=0,
+                    reading_date=baseline_date,
+                ))
+
+        if apply:
+            db.session.commit()
+            click.echo(f"{len(candidatos)} leitura(s) baseline gravada(s).")
+        else:
+            click.echo("Modo simulação (sem --apply, nada foi gravado). Rode de novo com --apply pra gravar.")
 
     return app
 

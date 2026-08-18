@@ -209,7 +209,7 @@ def salvar_leitura_automatica(dados, carro):
     usada na revisão manual)."""
     km_delta = dados.get('km_rodados') or 0
     km_base = carro.current_km or 0
-    km_confirmado = round(km_base + km_delta)
+    km_confirmado = km_base + km_delta
 
     vel = dados.get('velocidade_maxima')
     vel_int = round(vel) if vel is not None else None
@@ -220,6 +220,32 @@ def salvar_leitura_automatica(dados, carro):
             reading_date = datetime.strptime(dados['periodo_fim'][:10], '%Y-%m-%d').date()
         except ValueError:
             pass
+
+    tem_leitura_confirmada = GPSReading.query.filter(
+        GPSReading.car_id == carro.id, GPSReading.confirmed_km.isnot(None)
+    ).first() is not None
+
+    if not tem_leitura_confirmada:
+        # Primeira leitura confirmada do carro: sem uma leitura anterior pra
+        # comparar, o gráfico de KM por mês (que soma avanços entre leituras
+        # consecutivas) não teria como calcular nenhum delta hoje. Grava uma
+        # leitura baseline com o KM que o carro já tinha antes do período
+        # coberto por este relatório, pra já existir o par.
+        baseline_date = reading_date - timedelta(days=1)
+        if dados.get('periodo_inicio'):
+            try:
+                baseline_date = datetime.strptime(dados['periodo_inicio'][:10], '%Y-%m-%d').date()
+            except ValueError:
+                pass
+        db.session.add(GPSReading(
+            car_id=carro.id,
+            image_filename=f"relatorio-gps-automatico:baseline:{dados.get('placa')}",
+            extracted_km=km_base,
+            confidence_note="Leitura baseline gerada automaticamente (primeira leitura confirmada do carro).",
+            status='confirmed',
+            confirmed_km=km_base,
+            reading_date=baseline_date,
+        ))
 
     leitura = GPSReading(
         car_id=carro.id,

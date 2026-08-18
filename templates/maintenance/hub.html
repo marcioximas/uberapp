@@ -15,7 +15,7 @@
     {% for car in cars %}
     <tr>
       <td>{{ car.plate }}</td>
-      <td>{{ car.current_km }}</td>
+      <td>{{ car.current_km|km }}</td>
       <td><a href="{{ url_for('maintenance.checklist', car_id=car.id) }}" class="btn btn-sm btn-outline-secondary">Ver checklist</a></td>
     </tr>
     {% endfor %}

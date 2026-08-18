@@ -59,14 +59,14 @@ class TestSalvarLeituraAutomatica:
         leitura = rg.salvar_leitura_automatica(dados, carro)
 
         assert leitura.status == 'confirmed'
-        assert leitura.confirmed_km == 1061  # 1000 + round(60.7)
-        assert leitura.extracted_km == 1061
+        assert leitura.confirmed_km == 1060.7  # 1000 + 60.7, sem arredondar
+        assert leitura.extracted_km == 1060.7
         assert leitura.confirmed_max_speed == 90
         assert leitura.confirmed_moving_time_minutes == 120
         assert leitura.reading_date.isoformat() == '2026-08-17'
 
         db.session.refresh(carro)
-        assert carro.current_km == 1061
+        assert carro.current_km == 1060.7
 
     def test_nao_regride_km_do_carro(self, app, db):
         # Delta negativo/zero não deveria existir na prática, mas o carro não
@@ -82,6 +82,42 @@ class TestSalvarLeituraAutomatica:
         db.session.refresh(carro)
         assert carro.current_km == 5000
 
+    def test_primeira_leitura_confirmada_grava_baseline_tambem(self, app, db):
+        carro = _criar_carro(db, plate='GHV-7A82', model='Gol', current_km=1000)
+        dados = {
+            'placa': 'GHV-7A82', 'periodo_inicio': '2026-08-16 08:00',
+            'periodo_fim': '2026-08-17 08:00', 'km_rodados': 60.7,
+            'tempo_em_movimento_minutos': 120, 'velocidade_maxima': 90.0,
+        }
+
+        rg.salvar_leitura_automatica(dados, carro)
+
+        leituras = GPSReading.query.filter_by(car_id=carro.id).order_by(GPSReading.reading_date).all()
+        assert len(leituras) == 2
+        baseline, atual = leituras
+        assert baseline.confirmed_km == 1000
+        assert baseline.reading_date.isoformat() == '2026-08-16'
+        assert atual.confirmed_km == 1060.7
+        assert atual.reading_date.isoformat() == '2026-08-17'
+
+    def test_segunda_leitura_confirmada_nao_repete_baseline(self, app, db):
+        carro = _criar_carro(db, plate='GHV-7A82', model='Gol', current_km=1000)
+        dados = {
+            'placa': 'GHV-7A82', 'periodo_inicio': '2026-08-16 08:00',
+            'periodo_fim': '2026-08-17 08:00', 'km_rodados': 60.7,
+            'tempo_em_movimento_minutos': 120, 'velocidade_maxima': 90.0,
+        }
+        rg.salvar_leitura_automatica(dados, carro)
+
+        dados2 = {
+            'placa': 'GHV-7A82', 'periodo_inicio': '2026-08-17 08:00',
+            'periodo_fim': '2026-08-18 08:00', 'km_rodados': 40,
+            'tempo_em_movimento_minutos': 90, 'velocidade_maxima': 85.0,
+        }
+        rg.salvar_leitura_automatica(dados2, carro)
+
+        assert GPSReading.query.filter_by(car_id=carro.id).count() == 3
+
     def test_leitura_fica_associada_ao_carro(self, app, db):
         carro = _criar_carro(db, plate='GHV-7A82', model='Gol', current_km=0)
         dados = {
@@ -91,9 +127,9 @@ class TestSalvarLeituraAutomatica:
 
         rg.salvar_leitura_automatica(dados, carro)
 
-        leituras = GPSReading.query.filter_by(car_id=carro.id).all()
-        assert len(leituras) == 1
-        assert leituras[0].confidence_note.startswith('Gerado automaticamente')
+        leituras = GPSReading.query.filter_by(car_id=carro.id).order_by(GPSReading.reading_date).all()
+        assert len(leituras) == 2  # baseline (primeira leitura confirmada) + a atual
+        assert leituras[1].confidence_note.startswith('Gerado automaticamente')
 
 
 class TestProcessar:
@@ -130,8 +166,9 @@ class TestProcessar:
 
         rg.processar(app)
 
-        assert GPSReading.query.filter_by(car_id=carro_gol.id).count() == 1
-        assert GPSReading.query.filter_by(car_id=carro_voyage.id).count() == 1
+        # 2 cada: leitura baseline (primeira leitura confirmada do carro) + a atual
+        assert GPSReading.query.filter_by(car_id=carro_gol.id).count() == 2
+        assert GPSReading.query.filter_by(car_id=carro_voyage.id).count() == 2
 
     def test_falha_em_um_carro_nao_impede_os_outros(self, app, db, monkeypatch):
         carro_gol = _criar_carro(db, plate='GHV-7A82', model='Gol')
@@ -153,7 +190,7 @@ class TestProcessar:
         rg.processar(app)  # não deve levantar exceção
 
         assert GPSReading.query.filter_by(car_id=carro_gol.id).count() == 0
-        assert GPSReading.query.filter_by(car_id=carro_voyage.id).count() == 1
+        assert GPSReading.query.filter_by(car_id=carro_voyage.id).count() == 2
 
     def test_placa_nao_cadastrada_e_pulada_sem_quebrar(self, app, db, monkeypatch):
         monkeypatch.setattr(rg, 'CARROS_MONITORADOS', [

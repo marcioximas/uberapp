@@ -13,7 +13,7 @@
       <td><a href="{{ url_for('cars.detail', car_id=car.id) }}">{{ car.plate }}</a></td>
       <td>{{ car.model or "-" }}</td>
       <td>{{ car.year or "-" }}</td>
-      <td>{{ car.current_km }}</td>
+      <td>{{ car.current_km|km }}</td>
       <td>{{ car.current_agreement.driver.name if car.current_agreement else "-" }}</td>
       <td>
         <input type="checkbox" disabled {% if car.current_agreement %}checked{% endif %}

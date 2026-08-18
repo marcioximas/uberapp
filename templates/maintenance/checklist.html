@@ -3,7 +3,7 @@
 {% block title %}Checklist — {{ car.plate }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h4 mb-0">Checklist de manutenção — {{ car.plate }} (KM atual: {{ car.current_km }})</h1>
+  <h1 class="h4 mb-0">Checklist de manutenção — {{ car.plate }} (KM atual: {{ car.current_km|km }})</h1>
   <a href="{{ url_for('maintenance.new_item', car_id=car.id) }}" class="btn btn-primary btn-sm">Novo item</a>
 </div>
 

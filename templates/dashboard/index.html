@@ -84,18 +84,18 @@
          aria-label="Gráfico de barras: quilômetros rodados pela frota por mês">
       {% for grade in g.grades %}
       <line class="grafico-km-grade" x1="{{ g.x_esq }}" x2="{{ g.x_dir }}" y1="{{ grade.y }}" y2="{{ grade.y }}"></line>
-      <text class="grafico-km-texto-valor" x="{{ g.x_esq }}" y="{{ grade.y - 4 }}">{{ "{:,}".format(grade.valor).replace(",", ".") }} km</text>
+      <text class="grafico-km-texto-valor" x="{{ g.x_esq }}" y="{{ grade.y - 4 }}">{{ grade.valor|km }} km</text>
       {% endfor %}
       <line class="grafico-km-eixo" x1="{{ g.x_esq }}" x2="{{ g.x_dir }}" y1="{{ g.baseline_y }}" y2="{{ g.baseline_y }}"></line>
 
       {% for barra in g.barras %}
       {% if barra.path %}
       <path class="grafico-km-bar" d="{{ barra.path }}" tabindex="0">
-        <title>{{ barra.label_mes }}: {{ "{:,}".format(barra.km).replace(",", ".") }} km</title>
+        <title>{{ barra.label_mes }}: {{ barra.km|km }} km</title>
       </path>
       {% endif %}
       {% if barra.eh_ultimo %}
-      <text class="grafico-km-label-atual" x="{{ barra.cx }}" y="{{ [barra.y - 6, 12]|max }}" text-anchor="middle">{{ "{:,}".format(barra.km).replace(",", ".") }}</text>
+      <text class="grafico-km-label-atual" x="{{ barra.cx }}" y="{{ [barra.y - 6, 12]|max }}" text-anchor="middle">{{ barra.km|km }}</text>
       {% endif %}
       <text class="grafico-km-texto-mes" x="{{ barra.cx }}" y="{{ g.baseline_y + 16 }}" text-anchor="middle">{{ barra.label_mes }}</text>
       {% endfor %}

@@ -41,7 +41,7 @@ class Car(db.Model):
     plate = db.Column(db.String(20), unique=True, nullable=False)
     model = db.Column(db.String(120))
     year = db.Column(db.Integer)
-    current_km = db.Column(db.Integer, default=0, nullable=False)
+    current_km = db.Column(db.Float, default=0, nullable=False)
     active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -281,7 +281,7 @@ class GPSReading(db.Model):
     car_id = db.Column(db.Integer, db.ForeignKey("cars.id"), nullable=False)
     image_filename = db.Column(db.String(255), nullable=False)
 
-    extracted_km = db.Column(db.Integer)
+    extracted_km = db.Column(db.Float)
     extracted_max_speed = db.Column(db.Integer)
     extracted_moving_time_minutes = db.Column(db.Integer)
     raw_ai_response = db.Column(db.Text)
@@ -290,7 +290,7 @@ class GPSReading(db.Model):
     status = db.Column(db.String(15), nullable=False, default="pending_review")
     # "pending_review" | "confirmed" | "rejected"
 
-    confirmed_km = db.Column(db.Integer)
+    confirmed_km = db.Column(db.Float)
     confirmed_max_speed = db.Column(db.Integer)
     confirmed_moving_time_minutes = db.Column(db.Integer)
     reading_date = db.Column(db.Date)

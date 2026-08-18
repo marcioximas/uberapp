@@ -14,9 +14,9 @@
   </div>
   <div class="col-md-6">
     <p class="text-muted small">
-      KM atual do carro: <strong>{{ leitura.car.current_km }}</strong><br>
+      KM atual do carro: <strong>{{ leitura.car.current_km|km }}</strong><br>
       Valores extraídos pela IA (edite se necessário abaixo):
-      KM {{ leitura.extracted_km if leitura.extracted_km is not none else "?" }},
+      KM {{ leitura.extracted_km|km if leitura.extracted_km is not none else "?" }},
       Vel. máx {{ leitura.extracted_max_speed if leitura.extracted_max_speed is not none else "?" }} km/h,
       Tempo em mov. {{ leitura.extracted_moving_time_minutes if leitura.extracted_moving_time_minutes is not none else "?" }} min
     </p>
