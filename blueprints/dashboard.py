@@ -101,7 +101,7 @@ def _km_deltas_por_carro_e_mes():
 def _km_por_carro_no_mes(ano, mes, carros):
     deltas = _km_deltas_por_carro_e_mes()
     return [
-        {"label": carro.plate, "km": deltas.get((carro.id, ano, mes), 0)}
+        {"label": carro.model or carro.plate, "km": deltas.get((carro.id, ano, mes), 0)}
         for carro in carros
     ]
 

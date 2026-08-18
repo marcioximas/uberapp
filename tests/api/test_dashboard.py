@@ -90,12 +90,20 @@ class TestKmPorCarroNoMes:
 
         dados = _km_por_carro_no_mes(2026, 8, [c1, c2])
         assert dados == [
-            {"label": "AAA0001", "km": 400},
-            {"label": "BBB0002", "km": 150},
+            {"label": "Onix", "km": 400},
+            {"label": "Gol", "km": 150},
         ]
 
     def test_carro_sem_leitura_no_mes_aparece_com_zero(self, app, db):
         car = Car(plate="AAA0001", model="Onix")
+        db.session.add(car)
+        db.session.commit()
+
+        dados = _km_por_carro_no_mes(2026, 8, [car])
+        assert dados == [{"label": "Onix", "km": 0}]
+
+    def test_carro_sem_modelo_cai_pra_placa(self, app, db):
+        car = Car(plate="AAA0001", model=None)
         db.session.add(car)
         db.session.commit()
 
