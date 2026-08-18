@@ -3,7 +3,13 @@
 {% block title %}{{ car.plate }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h4 mb-0">{{ car.plate }} {% if not car.active %}<span class="badge bg-secondary">Inativo</span>{% endif %}</h1>
+  <h1 class="h4 mb-0">
+    {{ car.plate }}
+    {% if not car.active %}<span class="badge bg-secondary">Inativo</span>{% endif %}
+    <label class="ms-2 fs-6 fw-normal align-middle">
+      <input type="checkbox" disabled {% if car.current_agreement %}checked{% endif %}> Rodando?
+    </label>
+  </h1>
   <a href="{{ url_for('cars.edit_car', car_id=car.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
 </div>
 

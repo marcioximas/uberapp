@@ -6,7 +6,7 @@
   <a href="{{ url_for('cars.new_car') }}" class="btn btn-primary btn-sm">Novo carro</a>
 </div>
 <table class="table bg-white">
-  <thead><tr><th>Placa</th><th>Modelo</th><th>Ano</th><th>KM</th><th>Motorista atual</th><th></th></tr></thead>
+  <thead><tr><th>Placa</th><th>Modelo</th><th>Ano</th><th>KM</th><th>Motorista atual</th><th>Rodando?</th><th></th></tr></thead>
   <tbody>
     {% for car in cars %}
     <tr>
@@ -15,6 +15,10 @@
       <td>{{ car.year or "-" }}</td>
       <td>{{ car.current_km }}</td>
       <td>{{ car.current_agreement.driver.name if car.current_agreement else "-" }}</td>
+      <td>
+        <input type="checkbox" disabled {% if car.current_agreement %}checked{% endif %}
+               title="{{ 'Tem motorista com contrato ativo' if car.current_agreement else 'Sem motorista/contrato ativo' }}">
+      </td>
       <td class="text-end">
         <a href="{{ url_for('cars.edit_car', car_id=car.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
         {% if car.active %}
