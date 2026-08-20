@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta, timezone
 from decimal import Decimal
 from collections import defaultdict
 
@@ -197,6 +197,27 @@ def _grafico_km_svg(dados):
     }
 
 
+def _ultima_atualizacao_km():
+    """Data/hora (horário de Brasília) da última leitura de GPS gravada
+    automaticamente pelo GitHub Actions (relatorio_gps.py) — quando o KM
+    dos carros foi atualizado pela última vez."""
+    ultima = (
+        GPSReading.query.filter(GPSReading.image_filename.like("relatorio-gps-automatico:%"))
+        .order_by(GPSReading.created_at.desc())
+        .first()
+    )
+    if ultima is None or ultima.created_at is None:
+        return None
+
+    utc = ultima.created_at.replace(tzinfo=timezone.utc)
+    try:
+        from zoneinfo import ZoneInfo
+        return utc.astimezone(ZoneInfo("America/Sao_Paulo"))
+    except Exception:
+        # Fallback sem tzdata instalado: Brasília é UTC-3 o ano todo (sem horário de verão).
+        return utc - timedelta(hours=3)
+
+
 @dashboard_bp.route("/")
 @login_required
 def index():
@@ -230,6 +251,7 @@ def index():
     grafico_km_carro = _grafico_km_svg(
         _km_por_carro_no_mes(mes_selecionado["ano"], mes_selecionado["mes"], carros_ativos)
     )
+    ultima_atualizacao_km = _ultima_atualizacao_km()
 
     return render_template(
         "dashboard/index.html",
@@ -242,4 +264,5 @@ def index():
         meses_disponiveis=meses_disponiveis,
         km_mes=km_mes,
         mes_selecionado=mes_selecionado,
+        ultima_atualizacao_km=ultima_atualizacao_km,
     )

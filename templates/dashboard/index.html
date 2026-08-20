@@ -95,6 +95,10 @@
     {% endif %}
   </div>
 </div>
+<p class="text-muted small mb-4">
+  Atualizado em:
+  {{ ultima_atualizacao_km.strftime('%d/%m/%Y %H:%M') if ultima_atualizacao_km else 'nunca' }}
+</p>
 
 <h2 class="h5">Ranking de margem por carro (mês atual)</h2>
 {% if not ranking_margem %}
