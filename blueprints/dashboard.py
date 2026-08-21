@@ -71,14 +71,15 @@ def _margem_por_carro():
 _NOMES_MES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 
 
-def _km_deltas_por_carro_e_mes():
-    """Retorna um dict {(car_id, ano, mes): km} com o KM rodado por cada carro
-    em cada mês.
+def _km_deltas_por_carro(chave_periodo):
+    """Retorna um dict {(car_id, *chave_periodo(reading_date)): km} com o KM
+    rodado por cada carro em cada período (a chave é definida por quem chama:
+    (ano, mes), (ano_iso, semana_iso), (ano, mes, dia), etc).
 
     Cada GPSReading.confirmed_km é uma leitura de odômetro (absoluta), não um
-    delta — então o KM rodado num mês é a soma dos avanços positivos entre
+    delta — então o KM rodado num período é a soma dos avanços positivos entre
     leituras consecutivas do mesmo carro cuja leitura mais recente do par caiu
-    naquele mês.
+    naquele período.
     """
     deltas = defaultdict(float)
     leituras = (
@@ -92,16 +93,44 @@ def _km_deltas_por_carro_e_mes():
     for leitura in leituras:
         anterior = ultimo_km_por_carro.get(leitura.car_id)
         if anterior is not None and leitura.confirmed_km > anterior:
-            chave = (leitura.car_id, leitura.reading_date.year, leitura.reading_date.month)
+            chave = (leitura.car_id,) + chave_periodo(leitura.reading_date)
             deltas[chave] += leitura.confirmed_km - anterior
         ultimo_km_por_carro[leitura.car_id] = leitura.confirmed_km
     return deltas
+
+
+def _km_deltas_por_carro_e_mes():
+    return _km_deltas_por_carro(lambda d: (d.year, d.month))
+
+
+def _km_deltas_por_carro_e_semana():
+    return _km_deltas_por_carro(lambda d: d.isocalendar()[:2])
+
+
+def _km_deltas_por_carro_e_dia():
+    return _km_deltas_por_carro(lambda d: (d.year, d.month, d.day))
 
 
 def _km_por_carro_no_mes(ano, mes, carros):
     deltas = _km_deltas_por_carro_e_mes()
     return [
         {"label": carro.model or carro.plate, "km": deltas.get((carro.id, ano, mes), 0)}
+        for carro in carros
+    ]
+
+
+def _km_por_carro_na_semana(ano_iso, semana_iso, carros):
+    deltas = _km_deltas_por_carro_e_semana()
+    return [
+        {"label": carro.model or carro.plate, "km": deltas.get((carro.id, ano_iso, semana_iso), 0)}
+        for carro in carros
+    ]
+
+
+def _km_por_carro_no_dia(ano, mes, dia, carros):
+    deltas = _km_deltas_por_carro_e_dia()
+    return [
+        {"label": carro.model or carro.plate, "km": deltas.get((carro.id, ano, mes, dia), 0)}
         for carro in carros
     ]
 
@@ -120,6 +149,43 @@ def _meses_disponiveis(quantidade=12):
             a -= 1
         meses.append({"value": f"{a:04d}-{m:02d}", "label": f"{_NOMES_MES[m - 1]}/{str(a)[2:]}", "ano": a, "mes": m})
     return meses
+
+
+def _semanas_disponiveis(quantidade=12):
+    """Últimas `quantidade` semanas (segunda a domingo, incluindo a atual),
+    da mais recente pra mais antiga — usado pra popular o seletor de semana
+    do gráfico de KM."""
+    hoje = date.today()
+    inicio_semana_atual = hoje - timedelta(days=hoje.weekday())
+    semanas = []
+    for i in range(quantidade):
+        inicio = inicio_semana_atual - timedelta(weeks=i)
+        fim = inicio + timedelta(days=6)
+        ano_iso, semana_iso, _ = inicio.isocalendar()
+        semanas.append({
+            "value": f"{ano_iso:04d}-W{semana_iso:02d}",
+            "label": f"{inicio.strftime('%d/%m')} a {fim.strftime('%d/%m')}",
+            "ano_iso": ano_iso,
+            "semana_iso": semana_iso,
+        })
+    return semanas
+
+
+def _dias_disponiveis(quantidade=14):
+    """Últimos `quantidade` dias (incluindo hoje), do mais recente pro mais
+    antigo — usado pra popular o seletor de dia do gráfico de KM."""
+    hoje = date.today()
+    dias = []
+    for i in range(quantidade):
+        d = hoje - timedelta(days=i)
+        dias.append({
+            "value": d.isoformat(),
+            "label": d.strftime("%d/%m"),
+            "ano": d.year,
+            "mes": d.month,
+            "dia": d.day,
+        })
+    return dias
 
 
 def _grafico_km_svg(dados):
@@ -242,15 +308,47 @@ def index():
 
     carros_ativos = Car.query.filter_by(active=True).order_by(Car.plate).all()
 
+    periodo_tipo = request.args.get("periodo_tipo", default="mes")
+    if periodo_tipo not in ("dia", "semana", "mes"):
+        periodo_tipo = "mes"
+
     meses_disponiveis = _meses_disponiveis()
     km_mes = request.args.get("km_mes", default="")
     mes_selecionado = next((m for m in meses_disponiveis if m["value"] == km_mes), None)
     if mes_selecionado is None:
         mes_selecionado = meses_disponiveis[0]
         km_mes = mes_selecionado["value"]
-    grafico_km_carro = _grafico_km_svg(
-        _km_por_carro_no_mes(mes_selecionado["ano"], mes_selecionado["mes"], carros_ativos)
-    )
+
+    semanas_disponiveis = _semanas_disponiveis()
+    km_semana = request.args.get("km_semana", default="")
+    semana_selecionada = next((s for s in semanas_disponiveis if s["value"] == km_semana), None)
+    if semana_selecionada is None:
+        semana_selecionada = semanas_disponiveis[0]
+        km_semana = semana_selecionada["value"]
+
+    dias_disponiveis = _dias_disponiveis()
+    km_dia = request.args.get("km_dia", default="")
+    dia_selecionado = next((d for d in dias_disponiveis if d["value"] == km_dia), None)
+    if dia_selecionado is None:
+        dia_selecionado = dias_disponiveis[0]
+        km_dia = dia_selecionado["value"]
+
+    if periodo_tipo == "semana":
+        periodo_label = semana_selecionada["label"]
+        grafico_km_carro = _grafico_km_svg(
+            _km_por_carro_na_semana(semana_selecionada["ano_iso"], semana_selecionada["semana_iso"], carros_ativos)
+        )
+    elif periodo_tipo == "dia":
+        periodo_label = dia_selecionado["label"]
+        grafico_km_carro = _grafico_km_svg(
+            _km_por_carro_no_dia(dia_selecionado["ano"], dia_selecionado["mes"], dia_selecionado["dia"], carros_ativos)
+        )
+    else:
+        periodo_label = mes_selecionado["label"]
+        grafico_km_carro = _grafico_km_svg(
+            _km_por_carro_no_mes(mes_selecionado["ano"], mes_selecionado["mes"], carros_ativos)
+        )
+
     ultima_atualizacao_km = _ultima_atualizacao_km()
 
     return render_template(
@@ -261,8 +359,16 @@ def index():
         ranking_margem=ranking_margem,
         grafico_km_carro=grafico_km_carro,
         carros_ativos=carros_ativos,
+        periodo_tipo=periodo_tipo,
+        periodo_label=periodo_label,
         meses_disponiveis=meses_disponiveis,
         km_mes=km_mes,
         mes_selecionado=mes_selecionado,
+        semanas_disponiveis=semanas_disponiveis,
+        km_semana=km_semana,
+        semana_selecionada=semana_selecionada,
+        dias_disponiveis=dias_disponiveis,
+        km_dia=km_dia,
+        dia_selecionado=dia_selecionado,
         ultima_atualizacao_km=ultima_atualizacao_km,
     )

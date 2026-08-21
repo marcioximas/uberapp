@@ -58,24 +58,49 @@
   .grafico-km-label-atual { fill: #0b0b0b; font-size: 12px; font-weight: 600; }
 </style>
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-  <h2 class="h5 mb-0">KM rodado por carro ({{ mes_selecionado.label }})</h2>
-  <form method="get" class="d-flex gap-2">
-    <select name="km_mes" class="form-select form-select-sm" onchange="this.form.submit()" style="width: auto;">
-      {% for opcao in meses_disponiveis %}
-      <option value="{{ opcao.value }}" {% if opcao.value == km_mes %}selected{% endif %}>{{ opcao.label }}</option>
-      {% endfor %}
-    </select>
-    <noscript><button type="submit" class="btn btn-sm btn-outline-secondary">Filtrar</button></noscript>
-  </form>
+  <h2 class="h5 mb-0">KM rodado por carro ({{ periodo_label }})</h2>
+  <div class="d-flex flex-wrap gap-2 align-items-center">
+    <div class="btn-group btn-group-sm" role="group">
+      <a href="{{ url_for('dashboard.index', periodo_tipo='dia', km_dia=km_dia) }}"
+         class="btn btn-outline-secondary {{ 'active' if periodo_tipo == 'dia' else '' }}">Dia</a>
+      <a href="{{ url_for('dashboard.index', periodo_tipo='semana', km_semana=km_semana) }}"
+         class="btn btn-outline-secondary {{ 'active' if periodo_tipo == 'semana' else '' }}">Semana</a>
+      <a href="{{ url_for('dashboard.index', periodo_tipo='mes', km_mes=km_mes) }}"
+         class="btn btn-outline-secondary {{ 'active' if periodo_tipo == 'mes' else '' }}">Mês</a>
+    </div>
+    <form method="get" class="d-flex gap-2">
+      <input type="hidden" name="periodo_tipo" value="{{ periodo_tipo }}">
+      {% if periodo_tipo == 'dia' %}
+      <select name="km_dia" class="form-select form-select-sm" onchange="this.form.submit()" style="width: auto;">
+        {% for opcao in dias_disponiveis %}
+        <option value="{{ opcao.value }}" {% if opcao.value == km_dia %}selected{% endif %}>{{ opcao.label }}</option>
+        {% endfor %}
+      </select>
+      {% elif periodo_tipo == 'semana' %}
+      <select name="km_semana" class="form-select form-select-sm" onchange="this.form.submit()" style="width: auto;">
+        {% for opcao in semanas_disponiveis %}
+        <option value="{{ opcao.value }}" {% if opcao.value == km_semana %}selected{% endif %}>{{ opcao.label }}</option>
+        {% endfor %}
+      </select>
+      {% else %}
+      <select name="km_mes" class="form-select form-select-sm" onchange="this.form.submit()" style="width: auto;">
+        {% for opcao in meses_disponiveis %}
+        <option value="{{ opcao.value }}" {% if opcao.value == km_mes %}selected{% endif %}>{{ opcao.label }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+      <noscript><button type="submit" class="btn btn-sm btn-outline-secondary">Filtrar</button></noscript>
+    </form>
+  </div>
 </div>
 <div class="card bg-white mb-4">
   <div class="card-body">
     {% set g = grafico_km_carro %}
     {% if g.barras|sum(attribute="km") == 0 %}
-      <p class="text-muted mb-0">Nenhuma leitura de GPS confirmada em {{ mes_selecionado.label }}.</p>
+      <p class="text-muted mb-0">Nenhuma leitura de GPS confirmada em {{ periodo_label }}.</p>
     {% else %}
     <svg viewBox="0 0 {{ g.largura }} {{ g.altura }}" width="100%" role="img"
-         aria-label="Gráfico de barras: quilômetros rodados por carro em {{ mes_selecionado.label }}">
+         aria-label="Gráfico de barras: quilômetros rodados por carro em {{ periodo_label }}">
       {% for grade in g.grades %}
       <line class="grafico-km-grade" x1="{{ g.x_esq }}" x2="{{ g.x_dir }}" y1="{{ grade.y }}" y2="{{ grade.y }}"></line>
       <text class="grafico-km-texto-valor" x="{{ g.x_esq }}" y="{{ grade.y - 4 }}">{{ grade.valor|km }} km</text>
