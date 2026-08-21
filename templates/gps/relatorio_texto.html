@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import render_field %}
+{% block title %}Relatório de KM — {{ car.plate }}{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Aplicar relatório de KM colado — {{ car.plate }}</h1>
+<p class="text-muted small">
+  Cole aqui o relatório "Informações gerais" copiado da tela do rastreamento (BSB/MyBSB) pra
+  registrar retroativamente o KM rodado nesse período. KM atual do carro: <strong>{{ car.current_km|km }}</strong>.
+</p>
+
+{% if preview %}
+<div class="card bg-white mb-3">
+  <div class="card-body">
+    <h2 class="h6">Confirme antes de aplicar</h2>
+    <p class="mb-1"><strong>Período:</strong> {{ preview.periodo_inicio.strftime("%d/%m/%Y %H:%M") }} até {{ preview.periodo_fim.strftime("%d/%m/%Y %H:%M") }}</p>
+    <p class="mb-1"><strong>KM rodado no período:</strong> {{ preview.km_rodados|km }} km</p>
+    <p class="mb-1"><strong>Leituras de GPS já existentes que serão deslocadas:</strong> {{ preview.leituras_deslocadas }}</p>
+    <p class="mb-3"><strong>KM atual do carro após aplicar:</strong> {{ preview.km_atual_novo|km }} km</p>
+    <form method="post" action="{{ url_for('gps.relatorio_texto_aplicar', car_id=car.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="texto" value="{{ texto }}">
+      <button type="submit" class="btn btn-primary" onclick="return confirm('Aplicar este relatório? Isso vai deslocar as leituras de GPS existentes deste carro.')">Aplicar</button>
+      <a href="{{ url_for('gps.relatorio_texto', car_id=car.id) }}" class="btn btn-outline-secondary">Colar outro relatório</a>
+    </form>
+  </div>
+</div>
+{% else %}
+<div class="row">
+  <div class="col-md-8">
+    <form method="post">
+      {{ form.hidden_tag() }}
+      {{ render_field(form.texto, rows=12) }}
+      {{ form.submit(class="btn btn-primary") }}
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<p class="mt-3"><a href="{{ url_for('cars.detail', car_id=car.id) }}">Voltar para o carro</a></p>
+{% endblock %}

@@ -96,6 +96,14 @@ class GPSUploadForm(FlaskForm):
     submit = SubmitField("Enviar")
 
 
+class GPSTextReportForm(FlaskForm):
+    texto = TextAreaField(
+        "Relatório \"Informações gerais\" colado do rastreador",
+        validators=[DataRequired()],
+    )
+    submit = SubmitField("Analisar relatório")
+
+
 class GPSReviewForm(FlaskForm):
     reading_date = DateField("Data do resumo", validators=[Optional()])
     confirmed_km = IntegerField("KM rodado", validators=[DataRequired(), NumberRange(min=0)])

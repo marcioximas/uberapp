@@ -50,6 +50,7 @@
         <h2 class="h6">Manutenção</h2>
         <a href="{{ url_for('maintenance.checklist', car_id=car.id) }}" class="btn btn-sm btn-outline-secondary">Ver checklist</a>
         <a href="{{ url_for('gps.upload') }}" class="btn btn-sm btn-outline-secondary">Upload GPS</a>
+        <a href="{{ url_for('gps.relatorio_texto', car_id=car.id) }}" class="btn btn-sm btn-outline-secondary">Relatório de KM colado</a>
       </div>
     </div>
   </div>

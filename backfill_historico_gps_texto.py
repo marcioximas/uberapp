@@ -82,6 +82,52 @@ def parsear_relatorios_texto(texto):
     return relatorios
 
 
+def montar_tag(placa, periodo_inicio, periodo_fim):
+    return (
+        f"relatorio-gps-manual:{placa}:"
+        f"{periodo_inicio.date()}_a_{periodo_fim.date()}"
+    )
+
+
+def ja_aplicado(tag):
+    return GPSReading.query.filter_by(image_filename=tag).first() is not None
+
+
+def aplicar_relatorio(carro, dados):
+    """Aplica um relatório já parseado (dict com periodo_inicio, periodo_fim,
+    km_rodados, placa) como leitura histórica do carro: desloca pra cima as
+    leituras que já existiam e soma ao KM atual — mesma lógica de
+    backfill_historico_gps.py. Levanta ValueError se esse relatório (mesma
+    placa + período) já tiver sido aplicado antes."""
+    tag = montar_tag(dados['placa'], dados['periodo_inicio'], dados['periodo_fim'])
+    if ja_aplicado(tag):
+        raise ValueError(
+            f"Este relatório (período {dados['periodo_inicio'].date()} a "
+            f"{dados['periodo_fim'].date()}) já foi aplicado antes."
+        )
+
+    km_acumulado = dados['km_rodados']
+    existentes = GPSReading.query.filter(
+        GPSReading.car_id == carro.id, GPSReading.confirmed_km.isnot(None)
+    ).all()
+    for leitura in existentes:
+        leitura.confirmed_km += km_acumulado
+        if leitura.extracted_km is not None:
+            leitura.extracted_km += km_acumulado
+
+    db.session.add(GPSReading(
+        car_id=carro.id,
+        image_filename=tag,
+        confidence_note="Leitura histórica aplicada manualmente a partir de relatório colado do rastreador.",
+        status='confirmed',
+        confirmed_km=km_acumulado,
+        reading_date=dados['periodo_fim'].date(),
+    ))
+    carro.current_km = (carro.current_km or 0) + km_acumulado
+    db.session.commit()
+    return km_acumulado
+
+
 def processar(app, texto, aplicar=False):
     relatorios = parsear_relatorios_texto(texto)
     if not relatorios:
@@ -95,42 +141,22 @@ def processar(app, texto, aplicar=False):
                 print(f"Carro não encontrado para a placa {dados['placa']}, pulando.")
                 continue
 
-            tag = (
-                f"relatorio-gps-manual:{dados['placa']}:"
-                f"{dados['periodo_inicio'].date()}_a_{dados['periodo_fim'].date()}"
-            )
-            if GPSReading.query.filter_by(image_filename=tag).first():
+            tag = montar_tag(dados['placa'], dados['periodo_inicio'], dados['periodo_fim'])
+            if ja_aplicado(tag):
                 print(f"{carro.plate}: relatório {tag} já foi aplicado antes, pulando.")
                 continue
 
-            km_acumulado = dados['km_rodados']
             print(
                 f"{carro.plate}: período {dados['periodo_inicio']} -> {dados['periodo_fim']}, "
-                f"{km_acumulado} km -> desloca leituras existentes e KM atual em +{km_acumulado}"
+                f"{dados['km_rodados']} km -> desloca leituras existentes e KM atual em "
+                f"+{dados['km_rodados']}"
             )
 
             if not aplicar:
                 print(f"{carro.plate}: simulação (sem --apply, nada foi gravado).")
                 continue
 
-            existentes = GPSReading.query.filter(
-                GPSReading.car_id == carro.id, GPSReading.confirmed_km.isnot(None)
-            ).all()
-            for leitura in existentes:
-                leitura.confirmed_km += km_acumulado
-                if leitura.extracted_km is not None:
-                    leitura.extracted_km += km_acumulado
-
-            db.session.add(GPSReading(
-                car_id=carro.id,
-                image_filename=tag,
-                confidence_note="Leitura histórica aplicada manualmente a partir de relatório colado do rastreador.",
-                status='confirmed',
-                confirmed_km=km_acumulado,
-                reading_date=dados['periodo_fim'].date(),
-            ))
-            carro.current_km = (carro.current_km or 0) + km_acumulado
-            db.session.commit()
+            aplicar_relatorio(carro, dados)
             print(f"{carro.plate}: gravado.")
 
 
