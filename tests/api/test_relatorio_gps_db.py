@@ -118,6 +118,51 @@ class TestSalvarLeituraAutomatica:
 
         assert GPSReading.query.filter_by(car_id=carro.id).count() == 3
 
+    def test_periodo_sobreposto_a_ultima_automatica_e_pulado(self, app, db):
+        # Regressão: workflow disparado manualmente de novo poucas horas
+        # depois contaria o mesmo trecho de KM duas vezes.
+        carro = _criar_carro(db, plate='GHV-7A82', model='Gol', current_km=1000)
+        dados = {
+            'placa': 'GHV-7A82', 'periodo_inicio': '2026-08-17 08:00',
+            'periodo_fim': '2026-08-18 08:00', 'km_rodados': 60.7,
+            'tempo_em_movimento_minutos': 120, 'velocidade_maxima': 90.0,
+        }
+        rg.salvar_leitura_automatica(dados, carro)
+
+        dados2 = {
+            # "últimas 24h" de novo, mas começa antes do período já coberto acima
+            'placa': 'GHV-7A82', 'periodo_inicio': '2026-08-17 20:00',
+            'periodo_fim': '2026-08-18 20:00', 'km_rodados': 55,
+            'tempo_em_movimento_minutos': 90, 'velocidade_maxima': 85.0,
+        }
+        resultado = rg.salvar_leitura_automatica(dados2, carro)
+
+        assert resultado is None
+        assert GPSReading.query.filter_by(car_id=carro.id).count() == 2  # baseline + só a 1a
+        db.session.refresh(carro)
+        assert carro.current_km == 1060.7
+
+    def test_periodo_contiguo_a_ultima_automatica_nao_e_pulado(self, app, db):
+        carro = _criar_carro(db, plate='GHV-7A82', model='Gol', current_km=1000)
+        dados = {
+            'placa': 'GHV-7A82', 'periodo_inicio': '2026-08-17 08:00',
+            'periodo_fim': '2026-08-18 08:00', 'km_rodados': 60.7,
+            'tempo_em_movimento_minutos': 120, 'velocidade_maxima': 90.0,
+        }
+        rg.salvar_leitura_automatica(dados, carro)
+
+        dados2 = {
+            'placa': 'GHV-7A82', 'periodo_inicio': '2026-08-18 08:00',
+            'periodo_fim': '2026-08-19 08:00', 'km_rodados': 40,
+            'tempo_em_movimento_minutos': 90, 'velocidade_maxima': 85.0,
+        }
+        resultado = rg.salvar_leitura_automatica(dados2, carro)
+
+        assert resultado is not None
+        assert GPSReading.query.filter_by(car_id=carro.id).count() == 3
+        db.session.refresh(carro)
+        assert carro.current_km == 1100.7
+
     def test_leitura_fica_associada_ao_carro(self, app, db):
         carro = _criar_carro(db, plate='GHV-7A82', model='Gol', current_km=0)
         dados = {
@@ -169,6 +214,22 @@ class TestProcessar:
         # 2 cada: leitura baseline (primeira leitura confirmada do carro) + a atual
         assert GPSReading.query.filter_by(car_id=carro_gol.id).count() == 2
         assert GPSReading.query.filter_by(car_id=carro_voyage.id).count() == 2
+
+    def test_rodar_duas_vezes_com_mesmo_periodo_nao_duplica_km(self, app, db, monkeypatch):
+        carro = _criar_carro(db, plate='FTE-7D54', model='Voyage')
+        monkeypatch.setattr(rg, 'CARROS_MONITORADOS', [{'placa': 'FTE-7D54', 'device_id': 222}])
+        monkeypatch.setattr(rg, 'login', lambda session: 'tok123')
+        monkeypatch.setattr(
+            rg, 'gerar_relatorio_html',
+            lambda session, token, device_id, dfrom, dto: self._html_para('FTE-7D54', 'VOYAGE', '100'),
+        )
+
+        rg.processar(app)  # 1a execução: baseline + leitura
+        rg.processar(app)  # execução manual repetida com o mesmo período
+
+        assert GPSReading.query.filter_by(car_id=carro.id).count() == 2
+        db.session.refresh(carro)
+        assert carro.current_km == 100
 
     def test_falha_em_um_carro_nao_impede_os_outros(self, app, db, monkeypatch):
         carro_gol = _criar_carro(db, plate='GHV-7A82', model='Gol')

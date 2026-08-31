@@ -212,12 +212,50 @@ def resolver_carro(placa, apelido):
     return None
 
 
+def _periodo_fim_da_ultima_automatica(carro):
+    """Devolve o periodo_fim (datetime) embutido na tag da última leitura
+    automática confirmada do carro, ou None se não houver nenhuma."""
+    ultima = GPSReading.query.filter(
+        GPSReading.car_id == carro.id,
+        GPSReading.confirmed_km.isnot(None),
+        GPSReading.image_filename.like('relatorio-gps-automatico:%'),
+        GPSReading.image_filename.notlike('relatorio-gps-automatico:baseline:%'),
+    ).order_by(GPSReading.reading_date.desc(), GPSReading.created_at.desc()).first()
+    if not ultima:
+        return None
+
+    partes = ultima.image_filename.split(':', 2)
+    if len(partes) < 3:
+        return None
+    try:
+        return datetime.strptime(partes[2], '%Y-%m-%d %H:%M')
+    except ValueError:
+        return None
+
+
 def salvar_leitura_automatica(dados, carro):
     """Grava uma GPSReading já 'confirmed' (sem revisão humana) a partir do
     relatório da API do rastreador, e atualiza o current_km do carro (o
     relatório dá KM rodado no período, então soma ao km atual — e só avança
     o odômetro do carro se o resultado for maior que o atual, mesma regra
-    usada na revisão manual)."""
+    usada na revisão manual).
+
+    Se o período deste relatório começar antes do período coberto pela
+    última leitura automática (ex.: o workflow foi disparado de novo menos
+    de 24h depois, manualmente), a janela se sobrepõe à anterior e o mesmo
+    trecho de KM seria contado duas vezes — nesse caso não grava nada e
+    devolve None."""
+    periodo_inicio_str = dados.get('periodo_inicio')
+    if periodo_inicio_str:
+        periodo_fim_ultima = _periodo_fim_da_ultima_automatica(carro)
+        if periodo_fim_ultima:
+            try:
+                periodo_inicio_novo = datetime.strptime(periodo_inicio_str, '%Y-%m-%d %H:%M')
+            except ValueError:
+                periodo_inicio_novo = None
+            if periodo_inicio_novo and periodo_inicio_novo < periodo_fim_ultima:
+                return None
+
     km_delta = dados.get('km_rodados') or 0
     km_base = carro.current_km or 0
     km_confirmado = km_base + km_delta
@@ -304,7 +342,12 @@ def processar(app):
                     print(f"Carro não encontrado no banco para a placa {dados['placa']}")
                     continue
 
-                salvar_leitura_automatica(dados, carro)
+                leitura = salvar_leitura_automatica(dados, carro)
+                if leitura is None:
+                    print(f"PULADO (período sobreposto à última leitura automática): "
+                          f"placa={dados['placa']} periodo={dados.get('periodo_inicio')} "
+                          f"-> {dados.get('periodo_fim')}")
+                    continue
                 gravados += 1
                 print(f"OK: placa={dados['placa']} km_rodados={dados.get('km_rodados')} "
                       f"km_atual={carro.current_km} periodo={dados.get('periodo_inicio')} "

@@ -8,7 +8,15 @@ on:
         type: string
         default: "FTE-7D54"
       tag:
-        description: "Tag da leitura a desfazer (image_filename, ex: relatorio-gps-manual:FTE-7D54:2026-08-23_a_2026-08-29). Deixe vazio pra só rodar o diagnóstico."
+        description: "Tag da leitura a desfazer (image_filename, ex: relatorio-gps-manual:FTE-7D54:2026-08-23_a_2026-08-29). Deixe vazio pra pular esse passo."
+        type: string
+        default: ""
+      ressincronizar_de:
+        description: "Recalcular dia a dia a partir desta data (AAAA-MM-DD). Deixe vazio pra pular esse passo."
+        type: string
+        default: ""
+      ressincronizar_ate:
+        description: "Recalcular dia a dia até esta data (AAAA-MM-DD, inclusive). Precisa cobrir até a leitura mais recente do carro."
         type: string
         default: ""
       apply:
@@ -45,8 +53,21 @@ jobs:
             python desfazer_relatorio_colado.py "${{ inputs.tag }}"
           fi
 
+      - name: Ressincronizar dia a dia com o rastreador
+        if: ${{ inputs.ressincronizar_de != '' && inputs.ressincronizar_ate != '' }}
+        env:
+          SITE_EMAIL: ${{ secrets.SITE_EMAIL }}
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            python ressincronizar_gps.py "${{ inputs.placa }}" "${{ inputs.ressincronizar_de }}" "${{ inputs.ressincronizar_ate }}" --apply
+          else
+            python ressincronizar_gps.py "${{ inputs.placa }}" "${{ inputs.ressincronizar_de }}" "${{ inputs.ressincronizar_ate }}"
+          fi
+
       - name: Diagnóstico (depois)
-        if: ${{ inputs.tag != '' && inputs.apply == 'true' }}
+        if: ${{ inputs.apply == 'true' && (inputs.tag != '' || (inputs.ressincronizar_de != '' && inputs.ressincronizar_ate != '')) }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python diagnostico_gps.py "${{ inputs.placa }}"
