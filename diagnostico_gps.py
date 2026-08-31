@@ -45,21 +45,27 @@ def diagnosticar_carro(carro):
         anterior = leitura.confirmed_km
 
 
-def main():
-    from app import app as flask_app
-    with flask_app.app_context():
-        placa = sys.argv[1] if len(sys.argv) > 1 else None
-        if placa:
-            carros = Car.query.filter(Car.plate.ilike(f"%{placa}%")).all()
-            if not carros:
-                print(f"Nenhum carro encontrado com placa contendo '{placa}'.")
-                return
-        else:
-            carros = Car.query.filter_by(active=True).order_by(Car.plate).all()
+def selecionar_carros(placa):
+    """Resolve o argumento de placa (None/'' /'todos' = todos os carros ativos,
+    senão busca por placa contendo o texto informado). Precisa estar dentro
+    de um app_context."""
+    if placa and placa.strip().lower() == 'todos':
+        placa = None
+    if placa:
+        return Car.query.filter(Car.plate.ilike(f"%{placa}%")).all()
+    return Car.query.filter_by(active=True).order_by(Car.plate).all()
 
+
+def processar(app, placa):
+    with app.app_context():
+        carros = selecionar_carros(placa)
+        if not carros:
+            print(f"Nenhum carro encontrado com placa contendo '{placa}'.")
+            return
         for carro in carros:
             diagnosticar_carro(carro)
 
 
 if __name__ == '__main__':
-    main()
+    from app import app as flask_app
+    processar(flask_app, sys.argv[1] if len(sys.argv) > 1 else None)

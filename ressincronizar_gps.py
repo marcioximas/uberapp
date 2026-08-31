@@ -11,11 +11,13 @@ idêntico ao que o rastreador reporta.
 
 Só funciona pra resincronizar até a leitura mais recente que o carro tem
 (não deixa leituras órfãs depois do período, calculadas em cima do valor
-antigo/corrompido).
+antigo/corrompido). Sempre mostra a comparação (KM atual x KM recalculado,
+dia a dia) antes de gravar — só grava mesmo com --apply.
 
 Uso:
-  python ressincronizar_gps.py FTE-7D54 2026-08-21 2026-08-30            # simulação
+  python ressincronizar_gps.py FTE-7D54 2026-08-21 2026-08-30            # simulação, 1 carro
   python ressincronizar_gps.py FTE-7D54 2026-08-21 2026-08-30 --apply    # grava de fato
+  python ressincronizar_gps.py todos 2026-08-21 2026-08-30               # simulação, todos os carros monitorados
 
 Precisa de SITE_EMAIL/SITE_PASSWORD/DATABASE_URL no ambiente.
 """
@@ -45,7 +47,18 @@ def _buscar_km_do_dia(session, csrf_token, device_id, dia):
     return dados.get('km_rodados') or 0.0
 
 
-def processar(app, placa, data_inicio, data_fim, aplicar=False):
+def processar_todos(app, data_inicio, data_fim, aplicar=False):
+    """Roda processar_carro pra todos os carros monitorados, um de cada vez —
+    uma falha num carro não impede os demais."""
+    for carro_cfg in CARROS_MONITORADOS:
+        try:
+            processar_carro(app, carro_cfg['placa'], data_inicio, data_fim, aplicar=aplicar)
+        except Exception as exc:
+            print(f"Falha ao ressincronizar {carro_cfg['placa']}: {exc}")
+        print()
+
+
+def processar_carro(app, placa, data_inicio, data_fim, aplicar=False):
     carro_cfg = next((c for c in CARROS_MONITORADOS if c['placa'] == placa), None)
     if carro_cfg is None:
         print(f"Placa {placa} não está em CARROS_MONITORADOS.")
@@ -127,13 +140,17 @@ def processar(app, placa, data_inicio, data_fim, aplicar=False):
 
 if __name__ == '__main__':
     if len(sys.argv) < 4:
-        print("Uso: python ressincronizar_gps.py <placa> <data_inicio AAAA-MM-DD> "
+        print("Uso: python ressincronizar_gps.py <placa|todos> <data_inicio AAAA-MM-DD> "
               "<data_fim AAAA-MM-DD> [--apply]")
         sys.exit(1)
 
     placa_arg = sys.argv[1]
     data_inicio_arg = datetime.strptime(sys.argv[2], '%Y-%m-%d').date()
     data_fim_arg = datetime.strptime(sys.argv[3], '%Y-%m-%d').date()
+    aplicar_arg = '--apply' in sys.argv
 
     from app import app as flask_app
-    processar(flask_app, placa_arg, data_inicio_arg, data_fim_arg, aplicar='--apply' in sys.argv)
+    if placa_arg.strip().lower() == 'todos':
+        processar_todos(flask_app, data_inicio_arg, data_fim_arg, aplicar=aplicar_arg)
+    else:
+        processar_carro(flask_app, placa_arg, data_inicio_arg, data_fim_arg, aplicar=aplicar_arg)

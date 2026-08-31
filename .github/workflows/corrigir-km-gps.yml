@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       placa:
-        description: "Placa do carro a diagnosticar (vazio = todos os carros ativos)"
+        description: "Placa do carro (vazio ou 'todos' = todos os carros monitorados)"
         type: string
         default: "FTE-7D54"
       tag:
