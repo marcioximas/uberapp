@@ -1,0 +1,52 @@
+name: Diagnóstico e correção de KM GPS (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      placa:
+        description: "Placa do carro a diagnosticar (vazio = todos os carros ativos)"
+        type: string
+        default: "FTE-7D54"
+      tag:
+        description: "Tag da leitura a desfazer (image_filename, ex: relatorio-gps-manual:FTE-7D54:2026-08-23_a_2026-08-29). Deixe vazio pra só rodar o diagnóstico."
+        type: string
+        default: ""
+      apply:
+        description: "Gravar de fato a correção (desmarcado = só mostra o que faria, sem alterar o banco)"
+        type: boolean
+        default: false
+
+jobs:
+  corrigir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Diagnóstico (antes)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python diagnostico_gps.py "${{ inputs.placa }}"
+
+      - name: Desfazer leitura sobreposta
+        if: ${{ inputs.tag != '' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            python desfazer_relatorio_colado.py "${{ inputs.tag }}" --apply
+          else
+            python desfazer_relatorio_colado.py "${{ inputs.tag }}"
+          fi
+
+      - name: Diagnóstico (depois)
+        if: ${{ inputs.tag != '' && inputs.apply == 'true' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python diagnostico_gps.py "${{ inputs.placa }}"

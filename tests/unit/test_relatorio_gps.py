@@ -136,6 +136,21 @@ class TestPeriodoUltimas24h:
         assert abs((agora_utc_naive - fim).total_seconds()) < 6 * 3600
 
 
+class TestPeriodoUltimaSemana:
+    def test_intervalo_tem_exatamente_7_dias(self):
+        inicio_str, fim_str = rg.periodo_ultima_semana()
+        fmt = '%Y-%m-%d %H:%M'
+        inicio = datetime.strptime(inicio_str, fmt)
+        fim = datetime.strptime(fim_str, fmt)
+        assert fim - inicio == timedelta(days=7)
+
+    def test_fim_e_proximo_do_agora(self):
+        _, fim_str = rg.periodo_ultima_semana()
+        fim = datetime.strptime(fim_str, '%Y-%m-%d %H:%M')
+        agora_utc_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+        assert abs((agora_utc_naive - fim).total_seconds()) < 6 * 3600
+
+
 class FakeResponse:
     def __init__(self, text='', status_code=200):
         self.text = text

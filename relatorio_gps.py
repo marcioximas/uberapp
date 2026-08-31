@@ -35,15 +35,26 @@ CARROS_MONITORADOS = [
 TYPE_INFORMACOES_GERAIS_RESUMO = '2'
 
 
-def periodo_ultimas_24h():
+def _agora_brasilia():
     try:
         from zoneinfo import ZoneInfo
-        agora = datetime.now(ZoneInfo(TZ_SP))
+        return datetime.now(ZoneInfo(TZ_SP))
     except Exception:
         # Fallback sem tzdata instalado: Brasília é UTC-3 o ano todo (sem horário de verão).
         from datetime import timezone
-        agora = datetime.now(timezone.utc) - timedelta(hours=3)
+        return datetime.now(timezone.utc) - timedelta(hours=3)
+
+
+def periodo_ultimas_24h():
+    agora = _agora_brasilia()
     inicio = agora - timedelta(hours=24)
+    fmt = '%Y-%m-%d %H:%M'
+    return inicio.strftime(fmt), agora.strftime(fmt)
+
+
+def periodo_ultima_semana():
+    agora = _agora_brasilia()
+    inicio = agora - timedelta(days=7)
     fmt = '%Y-%m-%d %H:%M'
     return inicio.strftime(fmt), agora.strftime(fmt)
 

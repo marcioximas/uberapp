@@ -93,17 +93,37 @@ def ja_aplicado(tag):
     return GPSReading.query.filter_by(image_filename=tag).first() is not None
 
 
+def primeira_leitura_confirmada(carro):
+    return GPSReading.query.filter(
+        GPSReading.car_id == carro.id, GPSReading.confirmed_km.isnot(None)
+    ).order_by(GPSReading.reading_date).first()
+
+
 def aplicar_relatorio(carro, dados):
     """Aplica um relatório já parseado (dict com periodo_inicio, periodo_fim,
     km_rodados, placa) como leitura histórica do carro: desloca pra cima as
     leituras que já existiam e soma ao KM atual — mesma lógica de
     backfill_historico_gps.py. Levanta ValueError se esse relatório (mesma
-    placa + período) já tiver sido aplicado antes."""
+    placa + período) já tiver sido aplicado antes, ou se o período colado se
+    sobrepõe a leituras que o carro já tem (essa função só serve pra
+    completar histórico ANTERIOR à primeira leitura já registrada — período
+    mais recente que isso já vem da automação diária, e aplicar de novo
+    contaria o KM duas vezes)."""
     tag = montar_tag(dados['placa'], dados['periodo_inicio'], dados['periodo_fim'])
     if ja_aplicado(tag):
         raise ValueError(
             f"Este relatório (período {dados['periodo_inicio'].date()} a "
             f"{dados['periodo_fim'].date()}) já foi aplicado antes."
+        )
+
+    primeira_leitura = primeira_leitura_confirmada(carro)
+    if primeira_leitura and dados['periodo_fim'].date() >= primeira_leitura.reading_date:
+        raise ValueError(
+            f"Este relatório (até {dados['periodo_fim'].date()}) se sobrepõe a leituras "
+            f"que {carro.plate} já tem a partir de {primeira_leitura.reading_date} "
+            f"(provavelmente da automação diária/semanal). Colar um relatório só serve "
+            f"pra preencher histórico anterior a essa data — para o período mais recente, "
+            f"o KM já vem da automação. Aplicar mesmo assim contaria o KM duas vezes."
         )
 
     km_acumulado = dados['km_rodados']
