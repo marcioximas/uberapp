@@ -263,10 +263,23 @@ def salvar_leitura_automatica(dados, carro):
     vel = dados.get('velocidade_maxima')
     vel_int = round(vel) if vel is not None else None
 
-    reading_date = date.today()
-    if dados.get('periodo_fim'):
+    # O relatório automático cobre as últimas ~24h: rodando às 08:00, ele vai
+    # de ontem 08:00 até hoje 08:00 — ou seja, é quase inteiramente o KM que o
+    # carro rodou ONTEM. Datar a leitura pelo fim do período (hoje) jogava esse
+    # KM no dia seguinte na visão "por dia" do gráfico; usa-se o início do
+    # período pra o KM cair no dia em que o carro realmente rodou.
+    reading_date = date.today() - timedelta(days=1)
+    if dados.get('periodo_inicio'):
         try:
-            reading_date = datetime.strptime(dados['periodo_fim'][:10], '%Y-%m-%d').date()
+            reading_date = datetime.strptime(dados['periodo_inicio'][:10], '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    elif dados.get('periodo_fim'):
+        try:
+            reading_date = (
+                datetime.strptime(dados['periodo_fim'][:10], '%Y-%m-%d').date()
+                - timedelta(days=1)
+            )
         except ValueError:
             pass
 
@@ -281,11 +294,6 @@ def salvar_leitura_automatica(dados, carro):
         # leitura baseline com o KM que o carro já tinha antes do período
         # coberto por este relatório, pra já existir o par.
         baseline_date = reading_date - timedelta(days=1)
-        if dados.get('periodo_inicio'):
-            try:
-                baseline_date = datetime.strptime(dados['periodo_inicio'][:10], '%Y-%m-%d').date()
-            except ValueError:
-                pass
         db.session.add(GPSReading(
             car_id=carro.id,
             image_filename=f"relatorio-gps-automatico:baseline:{dados.get('placa')}",

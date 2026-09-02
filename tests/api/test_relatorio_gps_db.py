@@ -63,7 +63,8 @@ class TestSalvarLeituraAutomatica:
         assert leitura.extracted_km == 1060.7
         assert leitura.confirmed_max_speed == 90
         assert leitura.confirmed_moving_time_minutes == 120
-        assert leitura.reading_date.isoformat() == '2026-08-17'
+        # datada pelo início do período (o KM é quase todo do dia anterior ao 08:00 do fim)
+        assert leitura.reading_date.isoformat() == '2026-08-16'
 
         db.session.refresh(carro)
         assert carro.current_km == 1060.7
@@ -96,9 +97,9 @@ class TestSalvarLeituraAutomatica:
         assert len(leituras) == 2
         baseline, atual = leituras
         assert baseline.confirmed_km == 1000
-        assert baseline.reading_date.isoformat() == '2026-08-16'
+        assert baseline.reading_date.isoformat() == '2026-08-15'
         assert atual.confirmed_km == 1060.7
-        assert atual.reading_date.isoformat() == '2026-08-17'
+        assert atual.reading_date.isoformat() == '2026-08-16'
 
     def test_segunda_leitura_confirmada_nao_repete_baseline(self, app, db):
         carro = _criar_carro(db, plate='GHV-7A82', model='Gol', current_km=1000)
