@@ -42,6 +42,7 @@ def create_app(test_config=None):
     from blueprints.financeiro import financeiro_bp
     from blueprints.gps import gps_bp
     from blueprints.maintenance import maintenance_bp
+    from blueprints.fines import fines_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
@@ -51,6 +52,7 @@ def create_app(test_config=None):
     app.register_blueprint(financeiro_bp)
     app.register_blueprint(gps_bp)
     app.register_blueprint(maintenance_bp)
+    app.register_blueprint(fines_bp)
 
     @app.errorhandler(404)
     def not_found(e):

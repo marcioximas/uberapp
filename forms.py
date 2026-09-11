@@ -23,6 +23,7 @@ class CarForm(FlaskForm):
     plate = StringField("Placa", validators=[DataRequired(), Length(max=20)])
     model = StringField("Modelo", validators=[Optional(), Length(max=120)])
     year = IntegerField("Ano", validators=[Optional()])
+    renavam = StringField("RENAVAM", validators=[Optional(), Length(max=20)])
     submit = SubmitField("Salvar")
 
 
@@ -173,6 +174,13 @@ class AdHocEntryForm(FlaskForm):
     amount = DecimalField("Valor (R$)", places=2, validators=[DataRequired()])
     entry_date = DateField("Data", validators=[DataRequired()])
     submit = SubmitField("Lançar")
+
+
+class FineReviewForm(FlaskForm):
+    confirmed_valor = DecimalField("Valor (R$)", places=2, validators=[DataRequired()])
+    confirmed_vencimento = DateField("Vencimento", validators=[Optional()])
+    notes = TextAreaField("Observações", validators=[Optional()])
+    submit = SubmitField("Confirmar")
 
 
 class CashSettingsForm(FlaskForm):

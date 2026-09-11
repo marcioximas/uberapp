@@ -8,6 +8,7 @@ from flask_login import login_required
 from models import (
     Car,
     ExpectedCharge,
+    Fine,
     GPSReading,
     MaintenanceItem,
     RentalAgreement,
@@ -303,6 +304,15 @@ def index():
             if status in ("atencao", "atrasado"):
                 alertas_manutencao.append((carro, item, status))
 
+    alertas_multas = []
+    for carro in Car.query.filter_by(active=True).all():
+        for fine in Fine.query.filter_by(car_id=carro.id).all():
+            status = fine.status_display(hoje)
+            if status not in ("paga", "recorrida", "rejected"):
+                alertas_multas.append((carro, fine, status))
+    alertas_multas.sort(key=lambda x: 0 if x[2] == "vencida" else 1)
+    total_multas_pendentes = len(alertas_multas)
+
     total_carros = Car.query.filter_by(active=True).count()
     ranking_margem = _margem_por_carro()
 
@@ -355,6 +365,8 @@ def index():
         "dashboard/index.html",
         resumo_cobrancas=resumo_cobrancas,
         alertas_manutencao=alertas_manutencao,
+        alertas_multas=alertas_multas,
+        total_multas_pendentes=total_multas_pendentes,
         total_carros=total_carros,
         ranking_margem=ranking_margem,
         grafico_km_carro=grafico_km_carro,
