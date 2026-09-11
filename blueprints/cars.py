@@ -1,9 +1,11 @@
+from datetime import date
+
 from flask import Blueprint, render_template, redirect, url_for, flash
 from flask_login import login_required
 
 from extensions import db
 from forms import CarForm, RecurringItemForm
-from models import Car, Transaction, RecurringItem
+from models import Car, Fine, Transaction, RecurringItem
 
 cars_bp = Blueprint("cars", __name__, url_prefix="/carros")
 
@@ -12,7 +14,16 @@ cars_bp = Blueprint("cars", __name__, url_prefix="/carros")
 @login_required
 def list_cars():
     cars = Car.query.order_by(Car.plate).all()
-    return render_template("cars/list.html", cars=cars)
+
+    hoje = date.today()
+    multas_pendentes_por_carro = {}
+    for fine in Fine.query.all():
+        if fine.status_display(hoje) not in ("paga", "recorrida", "rejected"):
+            multas_pendentes_por_carro[fine.car_id] = multas_pendentes_por_carro.get(fine.car_id, 0) + 1
+
+    return render_template(
+        "cars/list.html", cars=cars, multas_pendentes_por_carro=multas_pendentes_por_carro
+    )
 
 
 @cars_bp.route("/novo", methods=["GET", "POST"])

@@ -78,3 +78,17 @@ def test_car_detail_shows_fines(auth_client, db):
     resp = auth_client.get(f"/carros/{car.id}")
     assert resp.status_code == 200
     assert fine.numero_ait.encode() in resp.data
+
+
+def test_car_list_shows_pending_fine_count(auth_client, db):
+    car, fine = _car_com_multa(db, status="pending_review")
+    resp = auth_client.get("/carros/")
+    assert resp.status_code == 200
+    assert b">1<" in resp.data
+
+
+def test_car_list_hides_count_for_resolved_fine(auth_client, db):
+    car, fine = _car_com_multa(db, status="paga")
+    resp = auth_client.get("/carros/")
+    assert resp.status_code == 200
+    assert b">1<" not in resp.data
