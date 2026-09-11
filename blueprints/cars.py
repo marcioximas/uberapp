@@ -28,6 +28,7 @@ def new_car():
                 model=form.model.data,
                 year=form.year.data,
                 renavam=form.renavam.data,
+                chassi=form.chassi.data,
             )
             db.session.add(car)
             db.session.commit()
@@ -46,6 +47,7 @@ def edit_car(car_id):
         car.model = form.model.data
         car.year = form.year.data
         car.renavam = form.renavam.data
+        car.chassi = form.chassi.data
         db.session.commit()
         flash("Carro atualizado com sucesso.", "success")
         return redirect(url_for("cars.list_cars"))

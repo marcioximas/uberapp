@@ -42,6 +42,7 @@ class Car(db.Model):
     model = db.Column(db.String(120))
     year = db.Column(db.Integer)
     renavam = db.Column(db.String(20))
+    chassi = db.Column(db.String(30))  # usado na consulta de débitos/multas do Detran-DF
     current_km = db.Column(db.Float, default=0, nullable=False)
     active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
