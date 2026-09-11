@@ -38,12 +38,14 @@
     </div>
   </div>
   <div class="col-md-3">
-    <div class="card text-bg-danger bg-opacity-25">
-      <div class="card-body">
-        <div class="text-muted small">Multas pendentes</div>
-        <div class="fs-3">{{ total_multas_pendentes }}</div>
+    <a href="{{ url_for('cars.list_cars') }}" class="text-decoration-none">
+      <div class="card text-bg-danger bg-opacity-25">
+        <div class="card-body">
+          <div class="text-muted small">Multas pendentes</div>
+          <div class="fs-3">{{ total_multas_pendentes }}</div>
+        </div>
       </div>
-    </div>
+    </a>
   </div>
 </div>
 
@@ -54,7 +56,7 @@
   <a href="{{ url_for('financeiro.importar') }}" class="btn btn-outline-primary btn-sm">Importar extrato</a>
   <a href="{{ url_for('gps.upload') }}" class="btn btn-outline-secondary btn-sm">Upload GPS</a>
   <a href="{{ url_for('maintenance.alertas') }}" class="btn btn-outline-secondary btn-sm">Ver alertas de manutenção</a>
-  <a href="{{ url_for('fines.alertas') }}" class="btn btn-outline-secondary btn-sm">Ver alertas de multas</a>
+  <a href="{{ url_for('cars.list_cars') }}" class="btn btn-outline-secondary btn-sm">Ver multas por carro</a>
 </div>
 
 <style>

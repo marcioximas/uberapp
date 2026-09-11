@@ -11,6 +11,7 @@
       {{ render_field(form.model) }}
       {{ render_field(form.year) }}
       {{ render_field(form.renavam) }}
+      {{ render_field(form.chassi) }}
       {{ form.submit(class="btn btn-primary") }}
       <a href="{{ url_for('cars.list_cars') }}" class="btn btn-outline-secondary">Cancelar</a>
     </form>

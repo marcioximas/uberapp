@@ -1,15 +1,15 @@
 """
-Consulta as multas/débitos de cada carro ativo (com RENAVAM cadastrado) no
-Detran-DF, reaproveitando a sessão autenticada salva por detran_df_login.py.
+Consulta as multas de cada carro ativo (com chassi cadastrado) no Detran-DF
+via HTTP direto (ver detran_df.py) e grava em Fine (fines.upsert_fine).
 
-Não faz login sozinho — se a sessão salva expirou, para e avisa pra rodar
-`python detran_df_login.py` de novo (o login exige captcha humano).
+Não precisa de login, captcha nem sessão — usa uma credencial de serviço
+(client_credentials) pública do próprio site do Detran-DF.
 
 Uso:
   python detran_df_multas.py            # simulação, só mostra o que encontrou
   python detran_df_multas.py --apply    # grava de fato (upsert_fine + commit)
 
-Variáveis de ambiente: DETRAN_DF_SESSION_PATH (ver detran_df.py).
+Variáveis de ambiente: DETRAN_DF_CLIENT_ID, DETRAN_DF_CLIENT_SECRET (ver detran_df.py).
 """
 import sys
 
@@ -22,49 +22,41 @@ import detran_df
 def processar(app, apply=False):
     with app.app_context():
         try:
-            p, browser, context = detran_df.carregar_sessao_ou_falhar()
+            token = detran_df.obter_token_servico()
         except detran_df.DetranDFError as exc:
             print(str(exc))
             sys.exit(1)
 
-        page = context.new_page()
         carros = Car.query.filter_by(active=True).order_by(Car.plate).all()
 
-        try:
-            for carro in carros:
-                if not carro.renavam:
-                    print(f"{carro.plate}: sem RENAVAM cadastrado — pulei.")
-                    continue
+        for carro in carros:
+            if not carro.chassi:
+                print(f"{carro.plate}: sem chassi cadastrado — pulei.")
+                continue
 
-                try:
-                    multas = detran_df.consultar_multas_carro(page, carro)
-                except detran_df.DetranDFSessaoExpirada as exc:
-                    print(f"\n{exc}")
-                    sys.exit(1)
-                except Exception as exc:
-                    # Um carro falhar (rede, seletor mudou, etc.) não deve impedir os demais.
-                    print(f"{carro.plate}: falha ao consultar — {exc}")
-                    continue
+            try:
+                multas = detran_df.consultar_multas_carro(carro, token=token)
+            except Exception as exc:
+                # Um carro falhar (rede, chassi errado, etc.) não deve impedir os demais.
+                print(f"{carro.plate}: falha ao consultar — {exc}")
+                continue
 
-                if not multas:
-                    print(f"{carro.plate}: nenhuma multa encontrada.")
-                    continue
+            if not multas:
+                print(f"{carro.plate}: nenhuma multa encontrada.")
+                continue
 
-                for dados in multas:
-                    valor_str = f"R$ {dados['valor']:.2f}" if dados.get("valor") is not None else "valor ?"
-                    print(f"{carro.plate}: AIT {dados['numero_ait']} — "
-                          f"{dados.get('descricao') or '?'} — {valor_str}")
-                    if apply:
-                        upsert_fine(carro, dados)
-
+            for dados in multas:
+                valor_str = f"R$ {dados['valor']:.2f}" if dados.get("valor") is not None else "valor ?"
+                print(f"{carro.plate}: AIT {dados['numero_ait']} — "
+                      f"{dados.get('descricao') or '?'} — {valor_str}")
                 if apply:
-                    db.session.commit()
-                    print(f"{carro.plate}: {len(multas)} multa(s) gravada(s).")
-                else:
-                    print(f"{carro.plate}: {len(multas)} multa(s) encontrada(s) (simulação, sem --apply).")
-        finally:
-            browser.close()
-            p.stop()
+                    upsert_fine(carro, dados)
+
+            if apply:
+                db.session.commit()
+                print(f"{carro.plate}: {len(multas)} multa(s) gravada(s).")
+            else:
+                print(f"{carro.plate}: {len(multas)} multa(s) encontrada(s) (simulação, sem --apply).")
 
 
 if __name__ == "__main__":

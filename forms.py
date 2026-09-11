@@ -24,6 +24,7 @@ class CarForm(FlaskForm):
     model = StringField("Modelo", validators=[Optional(), Length(max=120)])
     year = IntegerField("Ano", validators=[Optional()])
     renavam = StringField("RENAVAM", validators=[Optional(), Length(max=20)])
+    chassi = StringField("Chassi", validators=[Optional(), Length(max=30)])
     submit = SubmitField("Salvar")
 
 

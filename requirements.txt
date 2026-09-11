@@ -10,4 +10,3 @@ anthropic
 Pillow
 gunicorn
 requests
-playwright

@@ -20,6 +20,7 @@
         <h2 class="h6">Dados</h2>
         <p class="mb-1"><strong>Modelo:</strong> {{ car.model or "-" }} ({{ car.year or "-" }})</p>
         <p class="mb-1"><strong>RENAVAM:</strong> {{ car.renavam or "-" }}</p>
+        <p class="mb-1"><strong>Chassi:</strong> {{ car.chassi or "-" }}</p>
         <p class="mb-0"><strong>KM atual:</strong> {{ car.current_km|km }}</p>
       </div>
     </div>
@@ -104,7 +105,7 @@
 </table>
 {% endif %}
 
-<div class="d-flex justify-content-between align-items-center">
+<div id="multas" class="d-flex justify-content-between align-items-center">
   <h2 class="h5">Multas</h2>
   <a href="{{ url_for('fines.alertas') }}" class="btn btn-sm btn-outline-secondary">Ver todas as multas da frota</a>
 </div>
