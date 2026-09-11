@@ -3,10 +3,11 @@ from datetime import timedelta
 
 import click
 from flask import Flask, render_template
+from flask_login import current_user
 from dotenv import load_dotenv
 
 from extensions import db, login_manager, csrf, migrate
-from models import User, Car, GPSReading
+from models import User, Car, Fine, GPSReading
 
 load_dotenv()
 
@@ -73,6 +74,16 @@ def create_app(test_config=None):
         valor = float(valor)
         texto = f"{valor:,.1f}" if valor % 1 else f"{int(valor):,}"
         return texto.replace(",", "X").replace(".", ",").replace("X", ".")
+
+    @app.context_processor
+    def inject_multas_pendentes_revisao():
+        """Contagem de multas raspadas que ainda ninguém revisou — usada pelo
+        alerta global (partials/_multas_alerta.html) em toda página logada,
+        pra avisar assim que a automação diária encontra uma multa nova."""
+        if not current_user.is_authenticated:
+            return {"multas_pendentes_revisao_count": 0}
+        count = Fine.query.filter_by(status="pending_review").count()
+        return {"multas_pendentes_revisao_count": count}
 
     @app.cli.command("create-admin")
     @click.option("--username", prompt=True)
