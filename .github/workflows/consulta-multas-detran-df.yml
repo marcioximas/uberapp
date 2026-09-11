@@ -1,0 +1,30 @@
+name: Consulta diária de multas Detran-DF
+
+on:
+  schedule:
+    # 07:00 horário de Brasília (UTC-3, sem horário de verão) = 10:00 UTC.
+    # Roda aos 7min da hora (não no minuto 0) porque o GitHub atrasa bastante
+    # os agendamentos no topo da hora — chega a horas de atraso, e às vezes
+    # descarta o evento (mesmo motivo do relatório diário de GPS).
+    - cron: '7 10 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  consulta-multas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Consultar multas por carro e gravar no banco
+        env:
+          DETRAN_DF_CLIENT_ID: ${{ secrets.DETRAN_DF_CLIENT_ID }}
+          DETRAN_DF_CLIENT_SECRET: ${{ secrets.DETRAN_DF_CLIENT_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python detran_df_multas.py --apply
