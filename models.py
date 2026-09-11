@@ -41,6 +41,7 @@ class Car(db.Model):
     plate = db.Column(db.String(20), unique=True, nullable=False)
     model = db.Column(db.String(120))
     year = db.Column(db.Integer)
+    renavam = db.Column(db.String(20))
     current_km = db.Column(db.Float, default=0, nullable=False)
     active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -51,6 +52,9 @@ class Car(db.Model):
     maintenance_items = db.relationship("MaintenanceItem", back_populates="car")
     gps_readings = db.relationship(
         "GPSReading", back_populates="car", order_by="GPSReading.created_at.desc()"
+    )
+    fines = db.relationship(
+        "Fine", back_populates="car", order_by="Fine.extracted_vencimento.desc()"
     )
 
     @property
@@ -303,6 +307,67 @@ class GPSReading(db.Model):
 
     def __repr__(self):
         return f"<GPSReading car={self.car_id} {self.status}>"
+
+
+class Fine(db.Model):
+    """Multa raspada da consulta de débitos do Detran-DF (ver detran_df.py).
+
+    Segue o mesmo padrão de GPSReading: campos extracted_* guardam o dado
+    bruto vindo da raspagem; confirmed_valor/confirmed_vencimento/notes são
+    correções humanas que uma nova raspagem (upsert_fine, em fines.py) nunca
+    sobrescreve, junto com status/notes/paid_date.
+    """
+
+    __tablename__ = "fines"
+    __table_args__ = (
+        db.UniqueConstraint("car_id", "numero_ait", name="uq_fine_car_ait"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    car_id = db.Column(db.Integer, db.ForeignKey("cars.id"), nullable=False)
+    numero_ait = db.Column(db.String(30), nullable=False)  # nº do Auto de Infração — chave natural
+
+    extracted_data_infracao = db.Column(db.Date)
+    extracted_local = db.Column(db.String(255))
+    extracted_descricao = db.Column(db.String(255))
+    extracted_valor = db.Column(db.Numeric(10, 2))
+    extracted_vencimento = db.Column(db.Date)
+    extracted_pontos = db.Column(db.Integer)
+    extracted_orgao_status = db.Column(db.String(60))  # texto cru do status no site do Detran
+    raw_response = db.Column(db.Text)  # JSON bruto da consulta, para depuração
+    consulted_at = db.Column(db.DateTime)  # quando essa raspagem específica ocorreu
+
+    confirmed_valor = db.Column(db.Numeric(10, 2))
+    confirmed_vencimento = db.Column(db.Date)
+    notes = db.Column(db.Text)
+
+    status = db.Column(db.String(15), nullable=False, default="pending_review")
+    # "pending_review" | "confirmed" | "paga" | "recorrida" | "rejected"
+    reviewed_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    paid_date = db.Column(db.Date)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    car = db.relationship("Car", back_populates="fines")
+    reviewed_by = db.relationship("User")
+
+    @property
+    def valor(self):
+        return self.confirmed_valor if self.confirmed_valor is not None else self.extracted_valor
+
+    @property
+    def vencimento(self):
+        return self.confirmed_vencimento if self.confirmed_vencimento is not None else self.extracted_vencimento
+
+    def status_display(self, today=None):
+        """'vencida' se ainda não resolvida e o vencimento já passou; senão, o status bruto."""
+        if self.status in ("pending_review", "confirmed"):
+            today = today or date.today()
+            if self.vencimento and self.vencimento < today:
+                return "vencida"
+        return self.status
+
+    def __repr__(self):
+        return f"<Fine {self.numero_ait} car={self.car_id} {self.status}>"
 
 
 class RecurringItem(db.Model):

@@ -6,13 +6,14 @@
   <a href="{{ url_for('cars.new_car') }}" class="btn btn-primary btn-sm">Novo carro</a>
 </div>
 <table class="table bg-white">
-  <thead><tr><th>Placa</th><th>Modelo</th><th>Ano</th><th>KM</th><th>Motorista atual</th><th>Rodando?</th><th></th></tr></thead>
+  <thead><tr><th>Placa</th><th>Modelo</th><th>Ano</th><th>RENAVAM</th><th>KM</th><th>Motorista atual</th><th>Rodando?</th><th></th></tr></thead>
   <tbody>
     {% for car in cars %}
     <tr>
       <td><a href="{{ url_for('cars.detail', car_id=car.id) }}">{{ car.plate }}</a></td>
       <td>{{ car.model or "-" }}</td>
       <td>{{ car.year or "-" }}</td>
+      <td>{{ car.renavam or "-" }}</td>
       <td>{{ car.current_km|km }}</td>
       <td>{{ car.current_agreement.driver.name if car.current_agreement else "-" }}</td>
       <td>

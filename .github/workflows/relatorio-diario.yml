@@ -2,8 +2,11 @@ name: Relatório diário GPS
 
 on:
   schedule:
-    # 08:00 horário de Brasília (UTC-3, sem horário de verão) = 11:00 UTC
-    - cron: '0 11 * * *'
+    # 07:00 horário de Brasília (UTC-3, sem horário de verão) = 10:00 UTC.
+    # Roda aos 7min da hora (não no minuto 0) porque o GitHub atrasa bastante
+    # os agendamentos no topo da hora — chega a horas de atraso, e às vezes
+    # descarta o evento.
+    - cron: '7 10 * * *'
   workflow_dispatch: {}
 
 jobs:

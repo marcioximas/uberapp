@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import status_badge %}
+{% block title %}Alertas de multas{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Multas pendentes da frota</h1>
+{% if not linhas %}
+<p class="text-muted">Nenhuma multa pendente no momento.</p>
+{% else %}
+<table class="table table-sm bg-white">
+  <thead><tr><th>Carro</th><th>AIT</th><th>Infração</th><th>Vencimento</th><th>Valor</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+    {% for car, fine, status in linhas %}
+    <tr>
+      <td><a href="{{ url_for('cars.detail', car_id=car.id) }}">{{ car.plate }}</a></td>
+      <td>{{ fine.numero_ait }}</td>
+      <td>{{ fine.extracted_descricao or "-" }}</td>
+      <td>{{ fine.vencimento.strftime("%d/%m/%Y") if fine.vencimento else "-" }}</td>
+      <td>{{ "R$ " + "%.2f"|format(fine.valor) if fine.valor is not none else "-" }}</td>
+      <td>{{ status_badge(status) }}</td>
+      <td>
+        {% if fine.status == "pending_review" %}
+        <a href="{{ url_for('fines.revisar', fine_id=fine.id) }}" class="btn btn-sm btn-primary">Revisar</a>
+        {% else %}
+        <a href="{{ url_for('cars.detail', car_id=car.id) }}" class="btn btn-sm btn-outline-secondary">Ver carro</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

@@ -18,14 +18,16 @@
     "atencao": "warning", "late": "warning",
     "atrasado": "danger", "missing": "danger",
     "unmatched": "secondary", "ignored": "dark",
-    "pending_review": "secondary", "confirmed": "success", "rejected": "dark"
+    "pending_review": "secondary", "confirmed": "success", "rejected": "dark",
+    "paga": "success", "recorrida": "info", "vencida": "danger"
   } %}
   {% set labels = {
     "ok": "OK", "pending": "Pendente", "matched": "Conciliado",
     "atencao": "Atenção", "late": "Atrasado",
     "atrasado": "Atrasado", "missing": "Não pago",
     "unmatched": "Não conciliado", "ignored": "Ignorado",
-    "pending_review": "Aguardando revisão", "confirmed": "Confirmado", "rejected": "Rejeitado"
+    "pending_review": "Aguardando revisão", "confirmed": "Confirmado", "rejected": "Rejeitado",
+    "paga": "Paga", "recorrida": "Recorrida", "vencida": "Vencida"
   } %}
   <span class="badge bg-{{ map.get(status, 'secondary') }}">{{ labels.get(status, status) }}</span>
 {% endmacro %}

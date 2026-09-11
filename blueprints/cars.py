@@ -23,7 +23,12 @@ def new_car():
         if Car.query.filter_by(plate=form.plate.data.upper()).first():
             flash("Já existe um carro com essa placa.", "danger")
         else:
-            car = Car(plate=form.plate.data.upper(), model=form.model.data, year=form.year.data)
+            car = Car(
+                plate=form.plate.data.upper(),
+                model=form.model.data,
+                year=form.year.data,
+                renavam=form.renavam.data,
+            )
             db.session.add(car)
             db.session.commit()
             flash("Carro cadastrado com sucesso.", "success")
@@ -40,6 +45,7 @@ def edit_car(car_id):
         car.plate = form.plate.data.upper()
         car.model = form.model.data
         car.year = form.year.data
+        car.renavam = form.renavam.data
         db.session.commit()
         flash("Carro atualizado com sucesso.", "success")
         return redirect(url_for("cars.list_cars"))

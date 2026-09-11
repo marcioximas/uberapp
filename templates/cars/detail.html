@@ -19,6 +19,7 @@
       <div class="card-body">
         <h2 class="h6">Dados</h2>
         <p class="mb-1"><strong>Modelo:</strong> {{ car.model or "-" }} ({{ car.year or "-" }})</p>
+        <p class="mb-1"><strong>RENAVAM:</strong> {{ car.renavam or "-" }}</p>
         <p class="mb-0"><strong>KM atual:</strong> {{ car.current_km|km }}</p>
       </div>
     </div>
@@ -97,6 +98,39 @@
       <td>{{ t.transaction_date.strftime("%d/%m/%Y") }}</td>
       <td>{{ t.description }}</td>
       <td>R$ {{ "%.2f"|format(t.amount) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<div class="d-flex justify-content-between align-items-center">
+  <h2 class="h5">Multas</h2>
+  <a href="{{ url_for('fines.alertas') }}" class="btn btn-sm btn-outline-secondary">Ver todas as multas da frota</a>
+</div>
+{% if not car.fines %}
+<p class="text-muted">Nenhuma multa registrada.</p>
+{% else %}
+<table class="table table-sm bg-white">
+  <thead><tr><th>AIT</th><th>Infração</th><th>Vencimento</th><th>Valor</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+    {% for f in car.fines[:10] %}
+    <tr>
+      <td>{{ f.numero_ait }}</td>
+      <td>{{ f.extracted_descricao or "-" }}</td>
+      <td>{{ f.vencimento.strftime("%d/%m/%Y") if f.vencimento else "-" }}</td>
+      <td>{{ "R$ " + "%.2f"|format(f.valor) if f.valor is not none else "-" }}</td>
+      <td>{{ status_badge(f.status_display()) }}</td>
+      <td>
+        {% if f.status == "pending_review" %}
+        <a href="{{ url_for('fines.revisar', fine_id=f.id) }}" class="btn btn-sm btn-primary">Revisar</a>
+        {% elif f.status == "confirmed" %}
+        <form method="post" action="{{ url_for('fines.marcar_paga', fine_id=f.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-success">Marcar paga</button>
+        </form>
+        {% endif %}
+      </td>
     </tr>
     {% endfor %}
   </tbody>

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import render_field %}
+{% block title %}Revisar multa{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Revisar multa — {{ fine.car.plate }}</h1>
+
+<p class="text-muted small">
+  Dados extraídos da consulta ao Detran-DF (confira e corrija abaixo se necessário):<br>
+  AIT <strong>{{ fine.numero_ait }}</strong>,
+  infração: {{ fine.extracted_descricao or "?" }},
+  data: {{ fine.extracted_data_infracao.strftime("%d/%m/%Y") if fine.extracted_data_infracao else "?" }},
+  local: {{ fine.extracted_local or "?" }},
+  valor: {{ "R$ %.2f"|format(fine.extracted_valor) if fine.extracted_valor is not none else "?" }},
+  vencimento: {{ fine.extracted_vencimento.strftime("%d/%m/%Y") if fine.extracted_vencimento else "?" }}
+  {% if fine.extracted_pontos %}, pontos: {{ fine.extracted_pontos }}{% endif %}
+</p>
+
+<div class="row">
+  <div class="col-md-6">
+    <form method="post">
+      {{ form.hidden_tag() }}
+      {{ render_field(form.confirmed_valor) }}
+      {{ render_field(form.confirmed_vencimento) }}
+      {{ render_field(form.notes) }}
+      {{ form.submit(class="btn btn-primary") }}
+    </form>
+    <form method="post" action="{{ url_for('fines.rejeitar', fine_id=fine.id) }}" class="mt-2">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-outline-danger btn-sm" onclick="return confirm('Descartar este registro de multa?')">Descartar (não é uma multa válida)</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
