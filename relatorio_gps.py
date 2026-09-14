@@ -11,6 +11,7 @@ Variáveis de ambiente esperadas:
 """
 import os
 import re
+import sys
 from datetime import date, datetime, timedelta
 from urllib.parse import unquote
 
@@ -335,6 +336,7 @@ def processar(app):
     csrf_token = login(session)
 
     gravados = 0
+    falhas = []
     with app.app_context():
         for carro_cfg in CARROS_MONITORADOS:
             try:
@@ -343,11 +345,13 @@ def processar(app):
                 dados = parsear_relatorio_html(html)
                 if not dados or not dados.get('placa'):
                     print(f"Não consegui extrair dados para a placa {carro_cfg['placa']}")
+                    falhas.append(carro_cfg['placa'])
                     continue
 
                 carro = resolver_carro(dados.get('placa'), dados.get('apelido'))
                 if carro is None:
                     print(f"Carro não encontrado no banco para a placa {dados['placa']}")
+                    falhas.append(dados['placa'])
                     continue
 
                 leitura = salvar_leitura_automatica(dados, carro)
@@ -361,10 +365,17 @@ def processar(app):
                       f"km_atual={carro.current_km} periodo={dados.get('periodo_inicio')} "
                       f"-> {dados.get('periodo_fim')}")
             except Exception as exc:
-                # Um carro falhar (rede, sessão, etc.) não deve impedir os demais.
+                # Um carro falhar (rede, sessão, etc.) não deve impedir os demais,
+                # mas precisa deixar o job vermelho (ver sys.exit abaixo) — senão a
+                # falha só aparece dias depois, na conferência semanal.
                 print(f"Falha ao processar placa {carro_cfg['placa']}: {exc}")
+                falhas.append(carro_cfg['placa'])
 
     print(f'{gravados} leitura(s) gravada(s).')
+
+    if falhas:
+        print(f"\n{len(falhas)} carro(s) com falha na leitura de hoje: {', '.join(falhas)}")
+        sys.exit(1)
 
 
 if __name__ == '__main__':
