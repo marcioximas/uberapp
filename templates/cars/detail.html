@@ -66,7 +66,7 @@
 <p class="text-muted">Nenhuma conta fixa cadastrada (ex: prestação de financiamento, seguro, rastreador).</p>
 {% else %}
 <table class="table table-sm bg-white">
-  <thead><tr><th>Nome</th><th>Tipo</th><th>Valor</th><th>Frequência</th><th></th></tr></thead>
+  <thead><tr><th>Nome</th><th>Tipo</th><th>Valor</th><th>Frequência</th><th>Parcelas restantes</th><th></th></tr></thead>
   <tbody>
     {% for item in car.recurring_items if item.active %}
     <tr>
@@ -74,6 +74,10 @@
       <td>{{ "Entrada" if item.type == "income" else "Saída" }}</td>
       <td>R$ {{ "%.2f"|format(item.amount) }}</td>
       <td>{{ "Semanal" if item.frequency == "weekly" else "Mensal" }}</td>
+      <td>
+        {% set restantes = item.parcelas_restantes() %}
+        {{ restantes if restantes is not none else "Sem prazo definido" }}
+      </td>
       <td>
         <a href="{{ url_for('financeiro.edit_recurring_item', item_id=item.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
         <form method="post" action="{{ url_for('financeiro.delete_recurring_item', item_id=item.id) }}" class="d-inline">

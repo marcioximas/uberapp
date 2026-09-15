@@ -162,6 +162,10 @@ class RecurringItemForm(FlaskForm):
         "Dia do mês (se mensal)", validators=[Optional(), NumberRange(min=1, max=28)]
     )
     start_date = DateField("Início da vigência", validators=[DataRequired()])
+    installments = IntegerField(
+        "Número de parcelas (deixe em branco se não tiver fim definido)",
+        validators=[Optional(), NumberRange(min=1, max=600)],
+    )
     notes = TextAreaField("Observações", validators=[Optional()])
     submit = SubmitField("Salvar")
 
@@ -173,7 +177,12 @@ class AdHocEntryForm(FlaskForm):
     )
     description = StringField("Descrição", validators=[DataRequired(), Length(max=255)])
     amount = DecimalField("Valor (R$)", places=2, validators=[DataRequired()])
-    entry_date = DateField("Data", validators=[DataRequired()])
+    entry_date = DateField("Data (1ª parcela)", validators=[DataRequired()])
+    installments = IntegerField(
+        "Número de parcelas",
+        default=1,
+        validators=[Optional(), NumberRange(min=1, max=600)],
+    )
     submit = SubmitField("Lançar")
 
 

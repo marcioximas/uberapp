@@ -14,6 +14,10 @@
       <div id="weekly-field">{{ render_field(form.weekday) }}</div>
       <div id="monthly-field">{{ render_field(form.day_of_month) }}</div>
       {{ render_field(form.start_date) }}
+      {{ render_field(form.installments) }}
+      {% if item and item.end_date %}
+      <p class="text-muted small">Termina em {{ item.end_date.strftime("%d/%m/%Y") }}. Preencha novamente para recalcular.</p>
+      {% endif %}
       {{ render_field(form.notes) }}
       {{ form.submit(class="btn btn-primary") }}
       <a href="{{ url_for('cars.detail', car_id=car.id) }}" class="btn btn-outline-secondary">Cancelar</a>

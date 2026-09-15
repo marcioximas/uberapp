@@ -33,3 +33,18 @@ def gerar_datas_vencimento(start_date, frequency, weekday, day_of_month, until_d
                 ano += 1
             if date(ano, mes, 1) > until_date:
                 break
+
+
+def datas_das_parcelas(start_date, frequency, weekday, day_of_month, n):
+    """Retorna as datas de vencimento das n primeiras parcelas, a partir de start_date."""
+    if frequency == "weekly":
+        limite = start_date + timedelta(weeks=n + 1)
+    else:
+        limite = start_date + timedelta(days=32 * (n + 1))
+    return list(gerar_datas_vencimento(start_date, frequency, weekday, day_of_month, limite))[:n]
+
+
+def data_enesima_parcela(start_date, frequency, weekday, day_of_month, n):
+    """Retorna a data de vencimento da n-ésima parcela (1-indexed) a partir de start_date."""
+    datas = datas_das_parcelas(start_date, frequency, weekday, day_of_month, n)
+    return datas[-1] if len(datas) == n else None

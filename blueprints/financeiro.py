@@ -29,6 +29,7 @@ from importador import (
     atualizar_status_cobrancas,
 )
 from contas_fixas import gerar_ocorrencias
+from recorrencia import data_enesima_parcela, datas_das_parcelas
 from projecao import calcular_projecao, calcular_saldo_atual
 from whatsapp import enviar_cobranca, WhatsAppError
 
@@ -295,6 +296,10 @@ def edit_recurring_item(item_id):
         )
         item.day_of_month = form.day_of_month.data if form.frequency.data == "monthly" else None
         item.start_date = form.start_date.data
+        if form.installments.data:
+            item.end_date = data_enesima_parcela(
+                item.start_date, item.frequency, item.weekday, item.day_of_month, form.installments.data
+            )
         item.notes = form.notes.data
         db.session.commit()
         flash("Conta fixa atualizada.", "success")
@@ -325,18 +330,29 @@ def novo_avulso():
         (c.id, c.plate) for c in Car.query.filter_by(active=True).order_by(Car.plate).all()
     ]
     if form.validate_on_submit():
-        entry = AdHocEntry(
-            car_id=form.car_id.data,
-            type=form.type.data,
-            description=form.description.data,
-            amount=form.amount.data,
-            entry_date=form.entry_date.data,
-            created_by_user_id=current_user.id,
+        n = form.installments.data or 1
+        datas = (
+            datas_das_parcelas(form.entry_date.data, "monthly", None, form.entry_date.data.day, n)
+            if n > 1
+            else [form.entry_date.data]
         )
-        db.session.add(entry)
+        for i, data_parcela in enumerate(datas, start=1):
+            descricao = form.description.data if n == 1 else f"{form.description.data} ({i}/{n})"
+            db.session.add(
+                AdHocEntry(
+                    car_id=form.car_id.data,
+                    type=form.type.data,
+                    description=descricao,
+                    amount=form.amount.data,
+                    entry_date=data_parcela,
+                    created_by_user_id=current_user.id,
+                )
+            )
         db.session.commit()
-        flash("Lançamento avulso registrado.", "success")
-        return redirect(url_for("financeiro.mes_a_mes", ano=entry.entry_date.year, mes=entry.entry_date.month))
+        flash("Lançamento avulso registrado." if n == 1 else f"{n} parcelas lançadas.", "success")
+        return redirect(
+            url_for("financeiro.mes_a_mes", ano=form.entry_date.data.year, mes=form.entry_date.data.month)
+        )
     return render_template("financeiro/avulso_form.html", form=form)
 
 

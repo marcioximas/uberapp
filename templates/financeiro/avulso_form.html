@@ -13,6 +13,8 @@
       {{ render_field(form.description) }}
       {{ render_field(form.amount) }}
       {{ render_field(form.entry_date) }}
+      {{ render_field(form.installments) }}
+      <p class="text-muted small">Mais de 1 parcela lança um avulso por mês, a partir da data acima.</p>
       {{ form.submit(class="btn btn-primary") }}
       <a href="{{ url_for('financeiro.mes_a_mes') }}" class="btn btn-outline-secondary">Cancelar</a>
     </form>
