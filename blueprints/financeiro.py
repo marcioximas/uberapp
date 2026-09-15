@@ -86,7 +86,13 @@ def conciliacao():
             (
                 c.id,
                 f"{c.agreement.car.plate} - {c.agreement.driver.name} - "
-                f"R$ {c.amount_expected:.2f} - vence {c.due_date.strftime('%d/%m/%Y')}",
+                f"R$ {c.amount_expected:.2f}"
+                + (
+                    f" (ou R$ {c.agreement.discounted_amount:.2f} com desconto)"
+                    if c.agreement.discounted_amount
+                    else ""
+                )
+                + f" - vence {c.due_date.strftime('%d/%m/%Y')}",
             )
             for c in candidatas
         ]

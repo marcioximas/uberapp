@@ -204,9 +204,13 @@ def conciliar_transacoes(batch_id=None):
 
     for transacao in query.all():
         candidatos = (
-            ExpectedCharge.query.filter(
-                ExpectedCharge.amount_expected == transacao.amount,
+            ExpectedCharge.query.join(RentalAgreement)
+            .filter(
                 ExpectedCharge.status.in_(["pending", "late"]),
+                db.or_(
+                    ExpectedCharge.amount_expected == transacao.amount,
+                    RentalAgreement.discounted_amount == transacao.amount,
+                ),
             )
             .all()
         )

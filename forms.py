@@ -38,6 +38,11 @@ class DriverForm(FlaskForm):
 class RentalAgreementForm(FlaskForm):
     driver_id = SelectField("Motorista", coerce=int, validators=[DataRequired()])
     amount = DecimalField("Valor do aluguel (R$)", places=2, validators=[DataRequired()])
+    discounted_amount = DecimalField(
+        "Valor com desconto (se pagar em dia/adiantado)",
+        places=2,
+        validators=[Optional()],
+    )
     frequency = SelectField(
         "Frequência",
         choices=[("weekly", "Semanal"), ("monthly", "Mensal")],
