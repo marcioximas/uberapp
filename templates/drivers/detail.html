@@ -2,7 +2,7 @@
 {% block title %}{{ driver.name }}{% endblock %}
 {% block content %}
 <h1 class="h4 mb-3">{{ driver.name }} {% if not driver.active %}<span class="badge bg-secondary">Inativo</span>{% endif %}</h1>
-<p><strong>Telefone:</strong> {{ driver.phone or "-" }} &nbsp; <strong>CPF:</strong> {{ driver.document or "-" }}</p>
+<p><strong>Telefone:</strong> {{ driver.phone or "-" }} &nbsp; <strong>CPF:</strong> {{ driver.document | cpf_mascarado or "-" }}</p>
 
 <h2 class="h5">Contratos</h2>
 {% if not driver.rental_agreements %}
