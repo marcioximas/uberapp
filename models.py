@@ -395,6 +395,23 @@ class RecurringItem(db.Model):
         "RecurringOccurrence", back_populates="item", order_by="RecurringOccurrence.due_date"
     )
 
+    def parcelas_restantes(self, today=None):
+        """Quantas parcelas ainda faltam vencer (None se não houver data de término definida)."""
+        if not self.end_date:
+            return None
+        today = today or date.today()
+        if today > self.end_date:
+            return 0
+        from recorrencia import gerar_datas_vencimento
+
+        inicio = max(self.start_date, today)
+        return sum(
+            1
+            for _ in gerar_datas_vencimento(
+                inicio, self.frequency, self.weekday, self.day_of_month, self.end_date
+            )
+        )
+
     def __repr__(self):
         return f"<RecurringItem {self.name} car={self.car_id} {self.type}>"
 

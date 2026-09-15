@@ -1,0 +1,11 @@
+{% if multas_pendentes_revisao_count %}
+<div class="alert alert-warning alert-dismissible fade show d-flex justify-content-between align-items-center flex-wrap gap-2" role="alert">
+  <div>
+    🚨 <strong>{{ multas_pendentes_revisao_count }}</strong>
+    {{ "multa nova encontrada" if multas_pendentes_revisao_count == 1 else "multas novas encontradas" }}
+    pela consulta automática do Detran-DF, aguardando revisão.
+  </div>
+  <a href="{{ url_for('fines.alertas') }}" class="btn btn-sm btn-warning">Revisar agora</a>
+  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+</div>
+{% endif %}

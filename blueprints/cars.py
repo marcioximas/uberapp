@@ -6,6 +6,7 @@ from flask_login import login_required
 from extensions import db
 from forms import CarForm, RecurringItemForm
 from models import Car, Fine, Transaction, RecurringItem
+from recorrencia import data_enesima_parcela
 
 cars_bp = Blueprint("cars", __name__, url_prefix="/carros")
 
@@ -103,6 +104,15 @@ def new_recurring_item(car_id):
             weekday=int(form.weekday.data) if form.frequency.data == "weekly" and form.weekday.data else None,
             day_of_month=form.day_of_month.data if form.frequency.data == "monthly" else None,
             start_date=form.start_date.data,
+            end_date=data_enesima_parcela(
+                form.start_date.data,
+                form.frequency.data,
+                int(form.weekday.data) if form.frequency.data == "weekly" and form.weekday.data else None,
+                form.day_of_month.data if form.frequency.data == "monthly" else None,
+                form.installments.data,
+            )
+            if form.installments.data
+            else None,
             notes=form.notes.data,
         )
         db.session.add(item)

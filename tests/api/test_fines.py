@@ -92,3 +92,17 @@ def test_car_list_hides_count_for_resolved_fine(auth_client, db):
     resp = auth_client.get("/carros/")
     assert resp.status_code == 200
     assert b">1<" not in resp.data
+
+
+def test_global_alert_shows_when_fine_pending_review(auth_client, db):
+    _car_com_multa(db, status="pending_review")
+    resp = auth_client.get("/")
+    assert resp.status_code == 200
+    assert "multa nova encontrada".encode() in resp.data
+
+
+def test_global_alert_hidden_when_no_pending_review_fine(auth_client, db):
+    _car_com_multa(db, status="confirmed")
+    resp = auth_client.get("/")
+    assert resp.status_code == 200
+    assert "aguardando revisão".encode() not in resp.data
