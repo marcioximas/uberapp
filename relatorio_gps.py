@@ -361,8 +361,8 @@ def processar(app):
                           f"-> {dados.get('periodo_fim')}")
                     continue
                 gravados += 1
-                print(f"OK: placa={dados['placa']} km_rodados={dados.get('km_rodados')} "
-                      f"km_atual={carro.current_km} periodo={dados.get('periodo_inicio')} "
+                print(f"OK: placa={dados['placa']} km_rodados={dados.get('km_rodados', 0):.2f} "
+                      f"km_atual={carro.current_km:.2f} periodo={dados.get('periodo_inicio')} "
                       f"-> {dados.get('periodo_fim')}")
             except Exception as exc:
                 # Um carro falhar (rede, sessão, etc.) não deve impedir os demais,
