@@ -63,6 +63,21 @@ def create_app(test_config=None):
     def server_error(e):
         return render_template("errors/500.html"), 500
 
+    @app.template_filter("cpf_mascarado")
+    def format_cpf_mascarado(document):
+        """Mascara o CPF/CNPJ pra não deixar o documento exposto nas listagens
+        e telas de detalhe — mostra só os 2 últimos dígitos."""
+        if not document:
+            return document
+        digitos = "".join(ch for ch in document if ch.isdigit())
+        if len(digitos) <= 2:
+            return "*" * len(digitos)
+        if len(digitos) == 11:
+            return f"***.***.***-{digitos[-2:]}"
+        if len(digitos) == 14:
+            return f"**.***.***/****-{digitos[-2:]}"
+        return "*" * (len(digitos) - 2) + digitos[-2:]
+
     @app.template_filter("km")
     def format_km(valor):
         """Formata KM no padrão brasileiro (milhar com ponto, decimal com

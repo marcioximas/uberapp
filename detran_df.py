@@ -21,12 +21,14 @@ Variáveis de ambiente: DETRAN_DF_CLIENT_ID, DETRAN_DF_CLIENT_SECRET
 (ver .env.example).
 """
 import os
+import time
 from datetime import datetime
 
 import requests
 
 TOKEN_URL = "https://acesso.detran.df.gov.br/auth/realms/detran-portal/protocol/openid-connect/token"
 DEBITOS_URL = "https://route5-api.detran.df.gov.br/fuse-service-prod/api/veiculo/codbarras/SEM_BOLETO/{chassi}/{ano}/debitos"
+TENTATIVAS_AUTENTICACAO = 3
 
 # O WAF na frente da API do Detran-DF rejeita requisições sem cara de navegador
 # (ex.: User-Agent padrão do requests). Estes são os mesmos headers que o
@@ -57,16 +59,23 @@ def obter_token_servico():
             "DETRAN_DF_CLIENT_ID / DETRAN_DF_CLIENT_SECRET não configurados no ambiente."
         )
 
-    try:
-        resp = requests.post(
-            TOKEN_URL,
-            auth=(client_id, client_secret),
-            data={"grant_type": "client_credentials", "scope": "profile phone email"},
-            headers={**_HEADERS_NAVEGADOR, "Accept": "application/json, image/*"},
-            timeout=15,
-        )
-    except requests.RequestException as exc:
-        raise DetranDFError(f"Falha de conexão ao autenticar no Detran-DF: {exc}") from exc
+    for tentativa in range(TENTATIVAS_AUTENTICACAO):
+        try:
+            resp = requests.post(
+                TOKEN_URL,
+                auth=(client_id, client_secret),
+                data={"grant_type": "client_credentials", "scope": "profile phone email"},
+                headers={**_HEADERS_NAVEGADOR, "Accept": "application/json, image/*"},
+                timeout=15,
+            )
+            break
+        except requests.RequestException as exc:
+            if tentativa == TENTATIVAS_AUTENTICACAO - 1:
+                raise DetranDFError(
+                    f"Falha de conexão ao autenticar no Detran-DF após "
+                    f"{TENTATIVAS_AUTENTICACAO} tentativas: {exc}"
+                ) from exc
+            time.sleep(2)
 
     if resp.status_code >= 400:
         raise DetranDFError(f"Falha ao autenticar no Detran-DF: HTTP {resp.status_code} {resp.text}")

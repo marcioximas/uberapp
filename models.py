@@ -94,6 +94,9 @@ class RentalAgreement(db.Model):
     car_id = db.Column(db.Integer, db.ForeignKey("cars.id"), nullable=False)
     driver_id = db.Column(db.Integer, db.ForeignKey("drivers.id"), nullable=False)
     amount = db.Column(db.Numeric(10, 2), nullable=False)
+    discounted_amount = db.Column(db.Numeric(10, 2))
+    # valor cobrado se o motorista pagar em dia/adiantado; usado como alternativa
+    # válida ao conciliar automaticamente as transações do extrato
     frequency = db.Column(db.String(10), nullable=False)  # "weekly" | "monthly"
     weekday = db.Column(db.Integer)  # 0=Monday, para frequency == weekly
     day_of_month = db.Column(db.Integer)  # 1-28, para frequency == monthly

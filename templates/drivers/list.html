@@ -12,7 +12,7 @@
     <tr>
       <td><a href="{{ url_for('drivers.detail', driver_id=driver.id) }}">{{ driver.name }}</a></td>
       <td>{{ driver.phone or "-" }}</td>
-      <td>{{ driver.document or "-" }}</td>
+      <td>{{ driver.document | cpf_mascarado or "-" }}</td>
       <td class="text-end">
         <a href="{{ url_for('drivers.edit_driver', driver_id=driver.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
         {% if driver.active %}

@@ -33,7 +33,11 @@
           {% set ag = car.current_agreement %}
           <p class="mb-1"><strong>Motorista:</strong> <a href="{{ url_for('drivers.detail', driver_id=ag.driver.id) }}">{{ ag.driver.name }}</a></p>
           <p class="mb-1"><strong>Valor:</strong> R$ {{ "%.2f"|format(ag.amount) }} ({{ "Semanal" if ag.frequency == "weekly" else "Mensal" }})</p>
-          <form method="post" action="{{ url_for('agreements.end_agreement', agreement_id=ag.id) }}">
+          {% if ag.discounted_amount %}
+          <p class="mb-1"><strong>Com desconto:</strong> R$ {{ "%.2f"|format(ag.discounted_amount) }}</p>
+          {% endif %}
+          <a href="{{ url_for('agreements.edit_agreement', agreement_id=ag.id) }}" class="btn btn-sm btn-outline-secondary">Editar contrato</a>
+          <form method="post" action="{{ url_for('agreements.end_agreement', agreement_id=ag.id) }}" class="d-inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Encerrar este contrato?')">Encerrar contrato</button>
           </form>
