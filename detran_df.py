@@ -68,7 +68,6 @@ def obter_token_servico():
                 headers={**_HEADERS_NAVEGADOR, "Accept": "application/json, image/*"},
                 timeout=15,
             )
-            break
         except requests.RequestException as exc:
             if tentativa == TENTATIVAS_AUTENTICACAO - 1:
                 raise DetranDFError(
@@ -76,14 +75,22 @@ def obter_token_servico():
                     f"{TENTATIVAS_AUTENTICACAO} tentativas: {exc}"
                 ) from exc
             time.sleep(2)
+            continue
 
-    if resp.status_code >= 400:
-        raise DetranDFError(f"Falha ao autenticar no Detran-DF: HTTP {resp.status_code} {resp.text}")
+        if resp.status_code >= 400:
+            raise DetranDFError(
+                f"Falha ao autenticar no Detran-DF: HTTP {resp.status_code} {resp.text}"
+            )
 
-    try:
-        return resp.json()["access_token"]
-    except (KeyError, ValueError):
-        raise DetranDFError(f"Resposta inesperada ao autenticar no Detran-DF: {resp.text}")
+        try:
+            return resp.json()["access_token"]
+        except (KeyError, ValueError):
+            if tentativa == TENTATIVAS_AUTENTICACAO - 1:
+                raise DetranDFError(
+                    f"Resposta inesperada ao autenticar no Detran-DF após "
+                    f"{TENTATIVAS_AUTENTICACAO} tentativas: {resp.text}"
+                )
+            time.sleep(2)
 
 
 def consultar_debitos_por_chassi(chassi, token, ano="ANOS_ANTERIORES"):

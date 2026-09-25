@@ -20,6 +20,10 @@ def create_app(test_config=None):
     # Render fornece URLs no formato postgres://, mas SQLAlchemy exige postgresql://
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
+    # Força o driver psycopg2 (instalado via requirements.txt); sem isso o
+    # SQLAlchemy pode escolher o dialeto psycopg (v3), que não está instalado.
+    if database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg2://", 1)
     app.config["SQLALCHEMY_DATABASE_URI"] = database_url
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["UPLOAD_FOLDER"] = os.environ.get(
