@@ -375,9 +375,11 @@ def processar(app):
 
     if falhas:
         print(f"\n{len(falhas)} carro(s) com falha na leitura de hoje: {', '.join(falhas)}")
-        sys.exit(1)
+
+    return falhas
 
 
 if __name__ == '__main__':
     from app import app as flask_app
-    processar(flask_app)
+    if processar(flask_app):
+        sys.exit(1)
