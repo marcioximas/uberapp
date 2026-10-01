@@ -3,9 +3,11 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from openpyxl import Workbook
 
 from importador import (
     parse_itau_csv,
+    parse_planilha_xlsx,
     ImportadorError,
     importar_extrato,
     gerar_cobrancas_esperadas,
@@ -53,6 +55,25 @@ def test_parse_itau_csv_skips_invalid_rows_without_aborting():
     linhas, ignoradas = parse_itau_csv(io.BytesIO(csv_com_linha_ruim))
     assert len(linhas) == 1
     assert ignoradas == 1
+
+
+def test_parse_planilha_xlsx_detects_header_after_title_and_reads_excel_values():
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["Controle financeiro"])
+    sheet.append(["Data", "Descrição", "Valor"])
+    sheet.append([date(2026, 7, 8), "Recebimento", 400])
+    sheet.append(["data inválida", "Linha inválida", "abc"])
+    arquivo = io.BytesIO()
+    workbook.save(arquivo)
+    arquivo.seek(0)
+
+    linhas, ignoradas = parse_planilha_xlsx(arquivo)
+
+    assert ignoradas == 1
+    assert len(linhas) == 1
+    assert linhas[0]["date"] == date(2026, 7, 8)
+    assert linhas[0]["amount"] == Decimal("400")
 
 
 @pytest.fixture()

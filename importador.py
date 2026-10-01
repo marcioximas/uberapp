@@ -3,8 +3,10 @@
 import csv
 import io
 import re
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
+
+from openpyxl import load_workbook
 
 from extensions import db
 from models import (
@@ -74,11 +76,13 @@ def _parse_valor(valor_str):
 
 
 def _parse_data(data_str):
+    if isinstance(data_str, datetime):
+        return data_str.date()
+    if isinstance(data_str, date):
+        return data_str
     data_str = data_str.strip()
     for formato in ("%d/%m/%Y", "%d/%m/%y", "%Y-%m-%d"):
         try:
-            from datetime import datetime
-
             return datetime.strptime(data_str, formato).date()
         except ValueError:
             continue
@@ -138,9 +142,65 @@ def parse_itau_csv(file_stream):
     return linhas_validas, linhas_ignoradas
 
 
-def importar_extrato(file_stream, filename, user_id):
-    """Faz o parse do CSV, cria o ImportBatch + Transactions e roda a conciliação automática."""
-    linhas, ignoradas = parse_itau_csv(file_stream)
+def parse_planilha_xlsx(file_stream):
+    """Lê uma planilha com colunas de data, descrição e valor."""
+    try:
+        workbook = load_workbook(file_stream, read_only=True, data_only=True)
+    except Exception as exc:
+        raise ImportadorError("Não foi possível abrir a planilha Excel (.xlsx).") from exc
+
+    worksheet = workbook.active
+    linhas = list(worksheet.iter_rows(values_only=True))
+    cabecalho = None
+    indices = None
+    for linha_idx, linha in enumerate(linhas[:15]):
+        celulas = [_normalizar(str(c or "")) for c in linha]
+        encontrados = {}
+        for campo, aliases in COLUNA_ALIASES.items():
+            for idx, celula in enumerate(celulas):
+                if celula in aliases:
+                    encontrados[campo] = idx
+                    break
+        if len(encontrados) == len(COLUNA_ALIASES):
+            cabecalho = linha_idx
+            indices = encontrados
+            break
+
+    if cabecalho is None:
+        raise ImportadorError(
+            "Não foi possível localizar as colunas de data/descrição/valor na planilha."
+        )
+
+    linhas_validas = []
+    linhas_ignoradas = 0
+    max_idx = max(indices.values())
+    for linha in linhas[cabecalho + 1 :]:
+        if len(linha) <= max_idx or not any(c is not None for c in linha):
+            continue
+        try:
+            data_transacao = _parse_data(linha[indices["data"]])
+            valor = _parse_valor(str(linha[indices["valor"]] or ""))
+        except (ValueError, InvalidOperation, AttributeError):
+            linhas_ignoradas += 1
+            continue
+        descricao = str(linha[indices["descricao"]] or "").strip()
+        linhas_validas.append(
+            {
+                "date": data_transacao,
+                "description": descricao,
+                "amount": valor,
+                "raw_row": " | ".join(str(c or "") for c in linha),
+            }
+        )
+
+    workbook.close()
+    if not linhas_validas:
+        raise ImportadorError("Nenhuma linha válida encontrada na planilha.")
+
+    return linhas_validas, linhas_ignoradas
+
+
+def _importar_linhas(linhas, ignoradas, filename, user_id):
 
     batch = ImportBatch(
         filename=filename,
@@ -169,6 +229,21 @@ def importar_extrato(file_stream, filename, user_id):
     db.session.commit()
 
     return batch
+
+
+def importar_extrato(file_stream, filename, user_id):
+    """Importa o CSV do extrato e roda a conciliação automática."""
+    linhas, ignoradas = parse_itau_csv(file_stream)
+    return _importar_linhas(linhas, ignoradas, filename, user_id)
+
+
+def importar_planilha_financeira(file_stream, filename, user_id):
+    """Importa CSV ou XLSX de controle mensal como transações conciliáveis."""
+    if filename.lower().endswith(".xlsx"):
+        linhas, ignoradas = parse_planilha_xlsx(file_stream)
+    else:
+        linhas, ignoradas = parse_itau_csv(file_stream)
+    return _importar_linhas(linhas, ignoradas, filename, user_id)
 
 
 def gerar_cobrancas_esperadas(until_date=None):

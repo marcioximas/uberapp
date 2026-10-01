@@ -76,8 +76,8 @@ class RentalAgreementForm(FlaskForm):
 
 class CSVUploadForm(FlaskForm):
     file = FileField(
-        "Extrato CSV (Itaú)",
-        validators=[FileRequired(), FileAllowed(["csv"], "Envie um arquivo .csv")],
+        "Extrato ou planilha financeira (.csv ou .xlsx)",
+        validators=[FileRequired(), FileAllowed(["csv", "xlsx"], "Envie um arquivo .csv ou .xlsx")],
     )
     submit = SubmitField("Importar")
 

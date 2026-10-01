@@ -23,7 +23,7 @@ from models import (
     CashSettings,
 )
 from importador import (
-    importar_extrato,
+    importar_planilha_financeira,
     ImportadorError,
     gerar_cobrancas_esperadas,
     atualizar_status_cobrancas,
@@ -42,7 +42,9 @@ def importar():
     form = CSVUploadForm()
     if form.validate_on_submit():
         try:
-            batch = importar_extrato(form.file.data.stream, form.file.data.filename, current_user.id)
+            batch = importar_planilha_financeira(
+                form.file.data.stream, form.file.data.filename, current_user.id
+            )
         except ImportadorError as e:
             flash(str(e), "danger")
             return render_template("financeiro/upload.html", form=form)

@@ -1,6 +1,8 @@
 import io
 from datetime import date
 
+from openpyxl import Workbook
+
 from models import (
     Car,
     Driver,
@@ -49,6 +51,34 @@ def test_upload_csv_imports_and_reconciles(auth_client, db):
     assert batch is not None
     assert batch.row_count == 1
     transacao = Transaction.query.first()
+    assert transacao.status == "matched"
+
+
+def test_upload_planilha_xlsx_imports_and_reconciles(auth_client, db):
+    _criar_agreement(db)
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["Controle financeiro - julho"])
+    sheet.append(["Data", "Descrição", "Valor"])
+    sheet.append([date(2026, 7, 8), "Recebimento aluguel", 400])
+    arquivo = io.BytesIO()
+    workbook.save(arquivo)
+    arquivo.seek(0)
+
+    resp = auth_client.post(
+        "/financeiro/importar",
+        data={"file": (arquivo, "controle-julho.xlsx")},
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+
+    assert resp.status_code == 200
+    batch = ImportBatch.query.first()
+    assert batch is not None
+    assert batch.filename == "controle-julho.xlsx"
+    assert batch.row_count == 1
+    transacao = Transaction.query.first()
+    assert transacao.description == "Recebimento aluguel"
     assert transacao.status == "matched"
 
 

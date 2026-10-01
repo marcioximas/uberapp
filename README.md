@@ -1,7 +1,7 @@
 # H&M rent cars — Sistema de Gestão de Frota
 
 ## Módulos
-1. **Financeiro** — Importação de extrato CSV do Itaú, conciliação por carro (aluguel fixo semanal/mensal por motorista), cobrança de parcelas atrasadas via WhatsApp
+1. **Financeiro** — Importação de extrato CSV do Itaú ou planilha mensal XLSX, conciliação por carro (aluguel fixo semanal/mensal por motorista), cobrança de parcelas atrasadas via WhatsApp
 2. **Mês a mês & Projeção de caixa** — cada conta fixa (aluguel, prestação de financiamento, etc.) vira uma ocorrência mensal/semanal marcada manualmente como paga/recebida; lançamentos avulsos (conserto, multa); projeção de fluxo de caixa (6/12/24 meses) ponderada pela confiabilidade de pagamento de cada motorista, com alerta de saldo negativo; ranking de margem por carro no dashboard
 3. **Manutenção & GPS** — Upload de prints do GPS, extração automática via IA, checklist de manutenção configurável por carro com alertas preventivos
 
@@ -76,6 +76,7 @@ Sem as variáveis de WhatsApp configuradas, o botão "Enviar WhatsApp" na tela d
 ## Como usar o mês a mês e a projeção de caixa
 1. Cadastre as contas fixas de cada carro em Carro → **Nova conta fixa** (ex: prestação de financiamento) — nome livre, entrada ou saída, valor e frequência
 2. Em Financeiro → **Mês a mês**, navegue pelos meses e marque cada aluguel/conta fixa como recebido/pago (o aluguel também pode ser confirmado manualmente ali, além da conciliação automática do extrato)
+   - Para importar o controle mensal, envie um `.xlsx` com colunas de data, descrição e valor (receitas positivas e despesas negativas); as linhas entram na mesma tela de conciliação do extrato para revisão e confirmação.
 3. Lance gastos avulsos (conserto, multa, pneu) em Financeiro → **Mês a mês → Novo avulso** — eles aparecem no realizado do mês mas não entram na projeção, por serem imprevisíveis
 4. Configure o saldo inicial em Financeiro → **Configurações**
 5. Veja Financeiro → **Projeção de caixa** para os próximos 6/12/24 meses — soma o aluguel esperado (ponderado pela "confiabilidade de pagamento %" de cada motorista, configurável no contrato) e as contas fixas; avisa se o saldo projetado ficar negativo em algum mês
