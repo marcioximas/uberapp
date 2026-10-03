@@ -37,6 +37,31 @@ jobs:
       - name: Instalar dependências
         run: pip install -r requirements.txt
 
+      - name: Validar período informado
+        env:
+          DATA_INICIO: ${{ inputs.ressincronizar_de }}
+          DATA_FIM: ${{ inputs.ressincronizar_ate }}
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import date
+
+          inicio = os.environ['DATA_INICIO']
+          fim = os.environ['DATA_FIM']
+          if bool(inicio) != bool(fim):
+              raise SystemExit('Informe as duas datas de ressincronização ou deixe ambas vazias.')
+          if inicio and fim:
+              try:
+                  data_inicio = date.fromisoformat(inicio)
+                  data_fim = date.fromisoformat(fim)
+              except ValueError:
+                  raise SystemExit('Data inválida. Use datas reais no formato AAAA-MM-DD, por exemplo 2026-10-03.')
+              if data_inicio.isoformat() != inicio or data_fim.isoformat() != fim:
+                  raise SystemExit('Use exatamente o formato AAAA-MM-DD, por exemplo 2026-10-03.')
+              if data_fim < data_inicio:
+                  raise SystemExit('A data final precisa ser igual ou posterior à data inicial.')
+          PY
+
       - name: Diagnóstico (antes)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

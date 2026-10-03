@@ -1,7 +1,25 @@
 from datetime import date
 
+import pytest
+
 import ressincronizar_gps as rs
 from models import Car, GPSReading
+
+
+def test_parse_periodo_aceita_datas_validas():
+    assert rs._parse_periodo('2026-10-01', '2026-10-03') == (
+        date(2026, 10, 1), date(2026, 10, 3)
+    )
+
+
+def test_parse_periodo_rejeita_dia_inexistente():
+    with pytest.raises(ValueError, match='ressincronizar_de inválida'):
+        rs._parse_periodo('2026-09-31', '2026-10-03')
+
+
+def test_parse_periodo_rejeita_intervalo_invertido():
+    with pytest.raises(ValueError, match='igual ou posterior'):
+        rs._parse_periodo('2026-10-03', '2026-10-01')
 
 
 def _criar_carro(db, plate='', model='', current_km=0):

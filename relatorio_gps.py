@@ -1,7 +1,8 @@
 """
 Gera diariamente (via GitHub Actions) o relatório "Informações gerais (resumo)"
 de cada carro direto na API do site de rastreamento (Rastreamento BSB / MyBSB),
-cobrindo sempre as últimas 24 horas, e grava uma GPSReading já confirmada
+buscando desde o fim da última janela gravada (ou as últimas 24 horas na
+primeira execução), e grava uma GPSReading já confirmada
 (vem da API do rastreador, não de IA lendo um print — não precisa de revisão
 humana como o fluxo de upload manual).
 
@@ -329,7 +330,7 @@ def salvar_leitura_automatica(dados, carro):
 
 
 def processar(app):
-    datetime_from, datetime_to = periodo_ultimas_24h()
+    datetime_from_padrao, datetime_to = periodo_ultimas_24h()
 
     session = requests.Session()
     session.headers['User-Agent'] = 'uberapp-relatorio-gps/1.0'
@@ -340,6 +341,15 @@ def processar(app):
     with app.app_context():
         for carro_cfg in CARROS_MONITORADOS:
             try:
+                carro_configurado = resolver_carro(carro_cfg['placa'], None)
+                periodo_fim_ultima = (
+                    _periodo_fim_da_ultima_automatica(carro_configurado)
+                    if carro_configurado else None
+                )
+                datetime_from = (
+                    periodo_fim_ultima.strftime('%Y-%m-%d %H:%M')
+                    if periodo_fim_ultima else datetime_from_padrao
+                )
                 html = gerar_relatorio_html(session, csrf_token, carro_cfg['device_id'],
                                              datetime_from, datetime_to)
                 dados = parsear_relatorio_html(html)

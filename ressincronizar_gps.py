@@ -22,7 +22,7 @@ Uso:
 Precisa de SITE_EMAIL/SITE_PASSWORD/DATABASE_URL no ambiente.
 """
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 import requests
 
@@ -138,6 +138,27 @@ def processar_carro(app, placa, data_inicio, data_fim, aplicar=False):
         print(f"{carro.plate}: corrigido.")
 
 
+def _parse_periodo(data_inicio_texto, data_fim_texto):
+    datas = []
+    for nome, valor in (("ressincronizar_de", data_inicio_texto), ("ressincronizar_ate", data_fim_texto)):
+        try:
+            parsed = date.fromisoformat(valor)
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"{nome} inválida ({valor!r}); informe uma data real no formato AAAA-MM-DD."
+            ) from None
+        if parsed.isoformat() != valor:
+            raise ValueError(
+                f"{nome} inválida ({valor!r}); use exatamente o formato AAAA-MM-DD."
+            )
+        datas.append(parsed)
+
+    data_inicio, data_fim = datas
+    if data_fim < data_inicio:
+        raise ValueError("ressincronizar_ate precisa ser igual ou posterior a ressincronizar_de.")
+    return data_inicio, data_fim
+
+
 if __name__ == '__main__':
     if len(sys.argv) < 4:
         print("Uso: python ressincronizar_gps.py <placa|todos> <data_inicio AAAA-MM-DD> "
@@ -145,8 +166,11 @@ if __name__ == '__main__':
         sys.exit(1)
 
     placa_arg = sys.argv[1]
-    data_inicio_arg = datetime.strptime(sys.argv[2], '%Y-%m-%d').date()
-    data_fim_arg = datetime.strptime(sys.argv[3], '%Y-%m-%d').date()
+    try:
+        data_inicio_arg, data_fim_arg = _parse_periodo(sys.argv[2], sys.argv[3])
+    except ValueError as exc:
+        print(f"Erro: {exc}", file=sys.stderr)
+        sys.exit(2)
     aplicar_arg = '--apply' in sys.argv
 
     from app import app as flask_app

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import relatorio_gps as rg
 from models import Car, GPSReading
 
@@ -231,6 +233,41 @@ class TestProcessar:
         assert GPSReading.query.filter_by(car_id=carro.id).count() == 2
         db.session.refresh(carro)
         assert carro.current_km == 100
+
+    def test_proxima_execucao_comeca_no_fim_da_ultima_janela(self, app, db, monkeypatch):
+        carro = _criar_carro(db, plate='FTE-7D54', model='Voyage')
+        monkeypatch.setattr(rg, 'CARROS_MONITORADOS', [{'placa': 'FTE-7D54', 'device_id': 222}])
+        periodos = iter([
+            ('2026-08-16 08:00', '2026-08-17 08:00'),
+            ('2026-08-17 08:00', '2026-08-18 08:00'),
+        ])
+        monkeypatch.setattr(rg, 'periodo_ultimas_24h', lambda: next(periodos))
+        monkeypatch.setattr(rg, 'login', lambda session: 'tok123')
+        consultas = []
+
+        def gerar_relatorio(session, token, device_id, data_inicio, data_fim):
+            consultas.append((data_inicio, data_fim))
+            km = 100 if len(consultas) == 1 else 40
+            inicio = datetime.strptime(data_inicio, '%Y-%m-%d %H:%M').strftime('%d-%m-%Y %H:%M:%S')
+            fim = datetime.strptime(data_fim, '%Y-%m-%d %H:%M').strftime('%d-%m-%Y %H:%M:%S')
+            return (
+                self._html_para('FTE-7D54', 'VOYAGE', str(km))
+                .replace('16-08-2026 08:00:00', inicio)
+                .replace('17-08-2026 08:00:00', fim)
+            )
+
+        monkeypatch.setattr(rg, 'gerar_relatorio_html', gerar_relatorio)
+
+        rg.processar(app)
+        rg.processar(app)
+
+        assert consultas == [
+            ('2026-08-16 08:00', '2026-08-17 08:00'),
+            ('2026-08-17 08:00', '2026-08-18 08:00'),
+        ]
+        assert GPSReading.query.filter_by(car_id=carro.id).count() == 3
+        db.session.refresh(carro)
+        assert carro.current_km == 140
 
     def test_falha_em_um_carro_nao_impede_os_outros(self, app, db, monkeypatch):
         carro_gol = _criar_carro(db, plate='GHV-7A82', model='Gol')
